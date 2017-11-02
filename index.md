@@ -34,10 +34,15 @@ We are using the python Tensorflow library for evaluation of deep neural network
 
 ## Schedule
 Week 1: Read the paper and code from the original authors.
+
 Week 2: Try to get the original code running on our machines.
+
 Week 3: Try to get the original code running on our machines and do minor adjustments.
+
 Week 4: Try to improve the original code using methods using pipelining.
+
 Week 5: Try more optimization tricks if the methods don’t work. Start doing experiments.
+
 Week 6: Work on the final writeup.
 
 ## References
