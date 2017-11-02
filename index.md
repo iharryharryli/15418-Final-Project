@@ -1,4 +1,4 @@
-## Efficient Parallel Deep Reinforcement Learning Framework
+# Efficient Parallel Deep Reinforcement Learning Framework
 by Yixiu Zhao (yixiuz) and Shangda Li (shangdal)
 
 ### Summary
