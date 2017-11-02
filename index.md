@@ -46,6 +46,4 @@ Week 5: Try more optimization tricks if the methods don’t work. Start doing ex
 Week 6: Work on the final writeup.
 
 ## References
-“EFFICIENT PARALLEL METHODS FOR DEEP REINFORCEMENT LEARNING” 
-
-arXiv:1705.04862 [cs.LG], https://arxiv.org/abs/1705.04862
+[1] Alfredo V. Clemente, Humberto N. Castejón, Arjun Chandra. “Efficient Parallel Methods for Deep Reinforcement Learning”. arXiv:1705.04862 [cs.LG] (2017).
