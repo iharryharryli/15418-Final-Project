@@ -41,5 +41,6 @@ Week 5: Try more optimization tricks if the methods don’t work. Start doing ex
 Week 6: Work on the final writeup.
 
 ## References
-“EFFICIENT PARALLEL METHODS FOR DEEP REINFORCEMENT LEARNING”, 
+“EFFICIENT PARALLEL METHODS FOR DEEP REINFORCEMENT LEARNING” 
+
 arXiv:1705.04862 [cs.LG], https://arxiv.org/abs/1705.04862
