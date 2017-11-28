@@ -1,7 +1,7 @@
 
 EXECUTABLE := run
 
-CU_FILES   := cudaRenderer.cu
+CU_FILES   := cudaprint.cu
 
 CU_DEPS    :=
 
@@ -36,7 +36,7 @@ LDFRAMEWORKS := $(addprefix -framework , $(FRAMEWORKS))
 
 NVCC=nvcc
 
-OBJS=$(OBJDIR)/main.o 
+OBJS=$(OBJDIR)/main.o $(OBJDIR)/cudaprint.o 
 
 
 .PHONY: dirs clean
