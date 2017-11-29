@@ -1,23 +1,25 @@
+#include "depend.h"
 struct Torus
 {
   int resx,resy,resz;
+  int sizex,sizey,sizez;
   float dx,dy,dz;
 
   float* out;
 };
 
-struct F_info
+struct Dim_info
 {
   int d1,d2,d3;
 };
 
 __constant__ Torus torus;
-__constant__ F_info f_info;
+__constant__ Dim_info dim_info;
 
 __device__  __inline__  int 
 index3d(int i, int j, int k)
 {
-  return (k + j*f_info.d3 + i*f_info.d3*f_info.d2);
+  return (k + j*dim_info.d3 + i*dim_info.d3*dim_info.d2);
 }
 
 __global__ void Torus_Div (float* vx, float* vy, float* vz)
@@ -27,11 +29,11 @@ __global__ void Torus_Div (float* vx, float* vy, float* vz)
   float dy2 = torus.dy * torus.dy;
   float dz2 = torus.dz * torus.dz;
 
-  for(int i=0; i<f_info.d1; i++)
+  for(int i=0; i<dim_info.d1; i++)
   {
-    for(int j=0; j<f_info.d2; j++)
+    for(int j=0; j<dim_info.d2; j++)
     {
-      for(int k=0; k<f_info.d3; k++)
+      for(int k=0; k<dim_info.d3; k++)
       {
         int ixm = (i - 1) % torus.resx;
         int iym = (j - 1) % torus.resy;
