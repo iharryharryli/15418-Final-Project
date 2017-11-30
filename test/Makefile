@@ -1,7 +1,7 @@
 
 EXECUTABLE := run
 
-CU_FILES   := Torus.cu
+CU_FILES   := 
 
 CU_DEPS    :=
 
@@ -36,7 +36,7 @@ LDFRAMEWORKS := $(addprefix -framework , $(FRAMEWORKS))
 
 NVCC=nvcc
 
-OBJS=$(OBJDIR)/main.o $(OBJDIR)/ISF.o 
+OBJS=$(OBJDIR)/main.o $(OBJDIR)/jet.o 
 
 
 .PHONY: dirs clean

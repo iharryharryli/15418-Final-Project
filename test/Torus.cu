@@ -5,21 +5,24 @@ struct Torus
   int sizex,sizey,sizez;
   float dx,dy,dz;
 
+  int plen;
+
   float* out;
 };
 
-struct Dim_info
+void Torus_calc_ds(Torus* t)
 {
-  int d1,d2,d3;
-};
+  t -> dx = ((float)t -> sizex) / (t -> resx);
+  t -> dy = ((float)t -> sizey) / (t -> resy);
+  t -> dz = ((float)t -> sizez) / (t -> resz);
+}
 
 __constant__ Torus torus;
-__constant__ Dim_info dim_info;
 
 __device__  __inline__  int 
 index3d(int i, int j, int k)
 {
-  return (k + j*dim_info.d3 + i*dim_info.d3*dim_info.d2);
+  return (k + j*torus.resz + i*torus.resz*torus.resy);
 }
 
 __global__ void Torus_Div (float* vx, float* vy, float* vz)
@@ -29,11 +32,11 @@ __global__ void Torus_Div (float* vx, float* vy, float* vz)
   float dy2 = torus.dy * torus.dy;
   float dz2 = torus.dz * torus.dz;
 
-  for(int i=0; i<dim_info.d1; i++)
+  for(int i=0; i<torus.resx; i++)
   {
-    for(int j=0; j<dim_info.d2; j++)
+    for(int j=0; j<torus.resy; j++)
     {
-      for(int k=0; k<dim_info.d3; k++)
+      for(int k=0; k<torus.resz; k++)
       {
         int ixm = (i - 1) % torus.resx;
         int iym = (j - 1) % torus.resy;
