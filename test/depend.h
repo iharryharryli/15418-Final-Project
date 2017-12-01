@@ -4,3 +4,4 @@
 #include <math.h>
 
 #include <cuComplex.h>
+#include <cufft.h>

@@ -14,6 +14,7 @@ struct ISF
 };
 
 __constant__ ISF isf;
+ISF isf_cpu;
 
 __device__ cuFloatComplex exp_mycomplex(cuFloatComplex inp)
 {
@@ -29,9 +30,16 @@ __device__ void div_mycomplex(cuFloatComplex* n, float d)
   n -> y /= d;
 }
 
+__device__ void mul_mycomplex(cuFloatComplex* n, float d)
+{
+  n -> x *= d;
+  n -> y *= d;
+}
+
 __device__ float angle_mycomplex(cuFloatComplex inp)
 {
-  return atan2(inp.y, inp.x);
+  float res =  atan2(inp.y, inp.x);
+  return res;
 }
 
 __global__ void ISF_Normalize(cuFloatComplex* psi1, cuFloatComplex* psi2)
@@ -105,28 +113,40 @@ __global__ void ISF_VelocityOneForm(cuFloatComplex* psi1,
         int vxi = index3d(ixp,j,k);
         int vyi = index3d(i,iyp,k);
         int vzi = index3d(i,j,izp);
-
+        
         cuFloatComplex vxraw = cuCaddf(
-          cuCmulf(cuConjf(psi1[ind]),psi1[ixp]),
-          cuCmulf(cuConjf(psi2[ind]),psi2[ixp])
+          cuCmulf(cuConjf(psi1[ind]),psi1[vxi]),
+          cuCmulf(cuConjf(psi2[ind]),psi2[vxi])
           );
         cuFloatComplex vyraw = cuCaddf(
-          cuCmulf(cuConjf(psi1[ind]),psi1[iyp]),
-          cuCmulf(cuConjf(psi2[ind]),psi2[iyp])
+          cuCmulf(cuConjf(psi1[ind]),psi1[vyi]),
+          cuCmulf(cuConjf(psi2[ind]),psi2[vyi])
           );
         cuFloatComplex vzraw = cuCaddf(
-          cuCmulf(cuConjf(psi1[ind]),psi1[izp]),
-          cuCmulf(cuConjf(psi2[ind]),psi2[izp])
+          cuCmulf(cuConjf(psi1[ind]),psi1[vzi]),
+          cuCmulf(cuConjf(psi2[ind]),psi2[vzi])
           );
 
         isf.vx[ind] = angle_mycomplex(vxraw);
         isf.vy[ind] = angle_mycomplex(vyraw);
         isf.vz[ind] = angle_mycomplex(vzraw);
 
+        /*if(isf.vx[ind] > 1.2)
+          printf("%f\n", isf.vx[ind]);*/
 
       }
     }
   }
+}
+
+void ISF_PressureProject(cuFloatComplex* psi1,
+                          cuFloatComplex* psi2)
+{
+  ISF_VelocityOneForm<<<1,1>>>(psi1, psi2, 1.0);
+  cudaDeviceSynchronize();
+  Torus_Div<<<1,1>>>(isf_cpu.vx, isf_cpu.vy, isf_cpu.vz); 
+  cudaDeviceSynchronize();
+  Torus_PoissonSolve(torus_cpu.out);
 }
 
 

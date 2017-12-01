@@ -8,6 +8,7 @@ struct Torus
   int plen;
 
   float* out;
+  cuFloatComplex* fftbuf;
 };
 
 void Torus_calc_ds(Torus* t)
@@ -18,6 +19,7 @@ void Torus_calc_ds(Torus* t)
 }
 
 __constant__ Torus torus;
+Torus torus_cpu;
 
 __device__  __inline__  int 
 index3d(int i, int j, int k)
@@ -49,11 +51,60 @@ __global__ void Torus_Div (float* vx, float* vy, float* vz)
         torus.out[normal_index] +=
           (vy[normal_index] - vy[index3d(i,iym,k)])/dy2;
         torus.out[normal_index] +=
-          (vz[normal_index] - vz[index3d(j,j,izm)])/dz2;
+          (vz[normal_index] - vz[index3d(i,j,izm)])/dz2;
 
       }
     }
   }
 
+}
+
+__global__ void Torus_printfft()
+{
+  for(int i=0; i<torus.resx; i++)
+  {
+    for(int j=0; j<torus.resy; j++)
+    {
+      for(int k=0; k<torus.resz; k++)
+      {
+        int ind = index3d(i,j,k);
+        printf("%f %f\n", torus.fftbuf[ind].x, torus.fftbuf[ind].y);
+      }
+    }
+  }
+
+}
+
+__global__ void Torus_printfloat(float* f)
+{
+  for(int i=0; i<torus.resx; i++)
+  {
+    for(int j=0; j<torus.resy; j++)
+    {
+      for(int k=0; k<torus.resz; k++)
+      {
+        int ind = index3d(i,j,k);
+        if(f[ind]>1.0)printf("%f\n", f[ind]);
+      }
+    }
+  }
+}
+
+void Torus_PoissonSolve(float* f)
+{
+  // fft
+  cufftHandle plan;
+  cufftPlan3d(&plan, torus_cpu.resx, 
+              torus_cpu.resy, torus_cpu.resz, CUFFT_R2C);
+  cufftExecR2C(plan, f, torus_cpu.fftbuf);
+  cudaDeviceSynchronize();
+
+
+  Torus_printfft<<<1,1>>>();
+  //Torus_printfloat<<<1,1>>>(f);
+  cudaDeviceSynchronize();
+  
+
+  printf("FFT Success! \n");
 }
 

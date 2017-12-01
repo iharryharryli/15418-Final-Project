@@ -20,8 +20,8 @@ HOSTNAME=$(shell hostname)
 LIBS       :=
 FRAMEWORKS :=
 
-NVCCFLAGS=-O3 -m64 --gpu-architecture compute_35
-LIBS += GL glut cudart
+NVCCFLAGS=-O3 -m64 --gpu-architecture compute_35 -lcufft
+LIBS += GL glut cudart cufft
 
 ifneq ($(wildcard /opt/cuda-8.0/.*),)
 # Latedays

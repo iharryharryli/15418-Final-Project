@@ -8,8 +8,6 @@ struct nozzle_t
   float rad;
 };
 
-
-
 struct para_t
 {
   float jet_velocity[3];
@@ -29,8 +27,9 @@ struct para_t
 };
 
 __constant__ para_t para;
+para_t para_cpu;
 
-__global__ void set_nozzle_and_phase()
+__global__ void set_nozzle_and_phase_and_psi()
 {
   for(int i=0; i<torus.resx; i++)
   {
@@ -61,25 +60,15 @@ __global__ void set_nozzle_and_phase()
         para.phase[ind] = 
           para.kvec[0]*px + para.kvec[1]*py + para.kvec[2]*pz;
 
+        para.psi1[ind] = make_cuFloatComplex(1.0, 0.0);
+        para.psi2[ind] = make_cuFloatComplex(0.01, 0.0);
+
       }
     }
   }
 
 }
 
-__global__ void psi_init_cuda()
-{
-  for(int i=0; i<torus.resx; i++)
-  {
-    for(int j=0; j<torus.resy; j++)
-    {
-      for(int k=0; k<torus.resz; k++)
-      {
-        int ind = index3d(i,j,k);
-      }
-    }
-  }
-}
 
 
 void para_init(Torus* p, ISF* q, para_t* t)
@@ -114,7 +103,8 @@ void para_init(Torus* p, ISF* q, para_t* t)
   {
     t -> omega += ((t -> jet_velocity)[i])*((t -> jet_velocity)[i]);
   }
-   
+
+  t -> omega /= 2.0 * (q -> hbar);
   
 
   cudaMemcpyToSymbol(para, t, sizeof(para_t));
@@ -129,35 +119,91 @@ void isf_init(Torus* p, ISF* q)
   p -> sizey = 2;
   p -> sizez = 2;
   p -> plen = (p -> resx) * (p -> resy) * (p -> resz);
-  
   Torus_calc_ds(p);
+  cudaMalloc(&(p -> out), sizeof(float) * (p -> plen));
+  cudaMalloc(&(p -> fftbuf), sizeof(cuFloatComplex) * (p -> plen));
+
 
   q -> hbar = 0.1;
   q -> dt = 1.0 / 48.0;
   cudaMalloc(&(q -> mask), 
         sizeof(cuFloatComplex) * (p -> plen));
 
+
+  printf("%d\n",cudaMalloc(&(q -> vx),
+        sizeof(float) * (p -> plen)));
+  printf("%d\n",cudaMalloc(&(q -> vy),
+        sizeof(float) * (p -> plen)));
+  printf("%d\n",cudaMalloc(&(q -> vz),
+        sizeof(float) * (p -> plen)));
+  
+  
   cudaMemcpyToSymbol(torus, p, sizeof(Torus));
   cudaMemcpyToSymbol(isf, q, sizeof(ISF));
 
 }
 
+__global__ void constrain_velocity_iter()
+{
+    for(int i=0; i<torus.resx; i++)
+    {
+      for(int j=0; j<torus.resy; j++)
+      {
+        for(int k=0; k<torus.resz; k++)
+        {
+          int ind = index3d(i,j,k);
+          
+          if(para.isJet[ind] == 1)
+          {
+            float amp1 = cuCabsf(para.psi1[ind]);
+            float amp2 = cuCabsf(para.psi2[ind]);
+            
+            para.psi1[ind] = exp_mycomplex( 
+                     make_cuFloatComplex(0.0, para.phase[ind]));
+            mul_mycomplex(&para.psi1[ind], amp1);
+
+            /*if(para.psi1[ind].x < -0.34)
+              printf("%d %d %d %f\n",i,j,k,para.psi1[ind].x);*/
+
+            para.psi2[ind] = exp_mycomplex( 
+                     make_cuFloatComplex(0.0, para.phase[ind]));
+            mul_mycomplex(&para.psi2[ind], amp2);
+
+          }
+
+        }
+      }
+    }
+}
+
+void constrain_velocity()
+{
+  for(int i=0; i<1; i++)
+  {
+    constrain_velocity_iter<<<1,1>>>();
+    cudaDeviceSynchronize();
+    ISF_PressureProject(para_cpu.psi1, para_cpu.psi2);
+
+    printf("iteration success \n");
+  }
+}
 
 
 void jet_setup()
 {
-  Torus localtorus;
-  ISF localISF;
-  para_t localPara;
 
-  isf_init(&localtorus, &localISF);
-  para_init(&localtorus, &localISF, &localPara);
+  isf_init(&torus_cpu, &isf_cpu);
+  para_init(&torus_cpu, &isf_cpu, &para_cpu);
 
   ISF_BuildSchroedinger<<<1,1>>>();
 
-  set_nozzle_and_phase<<<1,1>>>();
-
-
+  set_nozzle_and_phase_and_psi<<<1,1>>>();
 
   cudaDeviceSynchronize();
+
+  constrain_velocity();
+
+  cudaDeviceSynchronize();
+
+  
 }
