@@ -130,12 +130,12 @@ void isf_init(Torus* p, ISF* q)
         sizeof(cuFloatComplex) * (p -> plen));
 
 
-  printf("%d\n",cudaMalloc(&(q -> vx),
-        sizeof(float) * (p -> plen)));
-  printf("%d\n",cudaMalloc(&(q -> vy),
-        sizeof(float) * (p -> plen)));
-  printf("%d\n",cudaMalloc(&(q -> vz),
-        sizeof(float) * (p -> plen)));
+  cudaMalloc(&(q -> vx),
+        sizeof(float) * (p -> plen));
+  cudaMalloc(&(q -> vy),
+        sizeof(float) * (p -> plen));
+  cudaMalloc(&(q -> vz),
+        sizeof(float) * (p -> plen));
   
   
   cudaMemcpyToSymbol(torus, p, sizeof(Torus));

@@ -90,21 +90,39 @@ __global__ void Torus_printfloat(float* f)
   }
 }
 
+__global__ void Torus_f2buf(float* f)
+{
+  for(int i=0; i<torus.resx; i++)
+  {
+    for(int j=0; j<torus.resy; j++)
+    {
+      for(int k=0; k<torus.resz; k++)
+      {
+        int ind = index3d(i,j,k);
+        torus.fftbuf[ind] = make_cuFloatComplex(f[ind],0.0);
+        }
+    }
+  }
+}
+
 void Torus_PoissonSolve(float* f)
 {
+  Torus_f2buf<<<1,1>>>(f);
+  cudaDeviceSynchronize(); 
+  
   // fft
   cufftHandle plan;
   cufftPlan3d(&plan, torus_cpu.resx, 
-              torus_cpu.resy, torus_cpu.resz, CUFFT_R2C);
-  cufftExecR2C(plan, f, torus_cpu.fftbuf);
+              torus_cpu.resy, torus_cpu.resz, CUFFT_C2C);
+  cufftExecC2C(plan, torus_cpu.fftbuf, 
+                       torus_cpu.fftbuf, CUFFT_FORWARD);
   cudaDeviceSynchronize();
+  cufftDestroy(plan);
 
-
-  Torus_printfft<<<1,1>>>();
+  //Torus_printfft<<<1,1>>>();
   //Torus_printfloat<<<1,1>>>(f);
-  cudaDeviceSynchronize();
+  //cudaDeviceSynchronize();
   
 
-  printf("FFT Success! \n");
 }
 
