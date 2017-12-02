@@ -1,29 +1,29 @@
 
 
 
-__device__ cuFloatComplex exp_mycomplex(cuFloatComplex inp)
+__device__ cuDoubleComplex exp_mycomplex(cuDoubleComplex inp)
 {
-  cuFloatComplex res;
+  cuDoubleComplex res;
   res.x = exp(inp.x) * cos(inp.y);
   res.y = exp(inp.x) * sin(inp.y);
   return res;
 }
 
-__device__ void div_mycomplex(cuFloatComplex* n, float d)
+__device__ void div_mycomplex(cuDoubleComplex* n, double d)
 {
   n -> x /= d;
   n -> y /= d;
 }
 
-__device__ void mul_mycomplex(cuFloatComplex* n, float d)
+__device__ void mul_mycomplex(cuDoubleComplex* n, double d)
 {
   n -> x *= d;
   n -> y *= d;
 }
 
-__device__ float angle_mycomplex(cuFloatComplex inp)
+__device__ double angle_mycomplex(cuDoubleComplex inp)
 {
-  float res =  atan2(inp.y, inp.x);
+  double res =  atan2(inp.y, inp.x);
   return res;
 }
 

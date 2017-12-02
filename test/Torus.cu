@@ -4,19 +4,19 @@ struct Torus
 {
   int resx,resy,resz;
   int sizex,sizey,sizez;
-  float dx,dy,dz;
+  double dx,dy,dz;
 
   int plen;
 
-  float* out;
-  cuFloatComplex* fftbuf;
+  double* out;
+  cuDoubleComplex* fftbuf;
 };
 
 void Torus_calc_ds(Torus* t)
 {
-  t -> dx = ((float)t -> sizex) / (t -> resx);
-  t -> dy = ((float)t -> sizey) / (t -> resy);
-  t -> dz = ((float)t -> sizez) / (t -> resz);
+  t -> dx = ((double)t -> sizex) / (t -> resx);
+  t -> dy = ((double)t -> sizey) / (t -> resy);
+  t -> dz = ((double)t -> sizez) / (t -> resz);
 }
 
 __constant__ Torus torus;
@@ -28,12 +28,12 @@ index3d(int i, int j, int k)
   return (k + j*torus.resz + i*torus.resz*torus.resy);
 }
 
-__global__ void Torus_Div (float* vx, float* vy, float* vz)
+__global__ void Torus_Div (double* vx, double* vy, double* vz)
 {
 
-  float dx2 = torus.dx * torus.dx;
-  float dy2 = torus.dy * torus.dy;
-  float dz2 = torus.dz * torus.dz;
+  double dx2 = torus.dx * torus.dx;
+  double dy2 = torus.dy * torus.dy;
+  double dz2 = torus.dz * torus.dz;
 
   for(int i=0; i<torus.resx; i++)
   {
@@ -77,7 +77,7 @@ __global__ void Torus_printfft()
 
 }
 
-__global__ void Torus_printfloat(float* f)
+__global__ void Torus_printdouble(double* f)
 {
   for(int i=0; i<torus.resx; i++)
   {
@@ -92,7 +92,7 @@ __global__ void Torus_printfloat(float* f)
   }
 }
 
-__global__ void Torus_f2buf(float* f)
+__global__ void Torus_f2buf(double* f)
 {
   for(int i=0; i<torus.resx; i++)
   {
@@ -101,7 +101,7 @@ __global__ void Torus_f2buf(float* f)
       for(int k=0; k<torus.resz; k++)
       {
         int ind = index3d(i,j,k);
-        torus.fftbuf[ind] = make_cuFloatComplex(f[ind],0.0);
+        torus.fftbuf[ind] = make_cuDoubleComplex(f[ind],0.0);
        }
     }
   }
@@ -116,11 +116,11 @@ __global__ void PoissonSolve_main()
       for(int k=0; k<torus.resz; k++)
       {
         int ind = index3d(i,j,k);   
-        float sx = sin(M_PI*i/torus.resx) / torus.dx;
-        float sy = sin(M_PI*j/torus.resy) / torus.dy;  
-        float sz = sin(M_PI*k/torus.resz) / torus.dz;
-        float denom = sx * sx + sy * sy + sz * sz;
-        float fac = 0.0;
+        double sx = sin(M_PI*i/torus.resx) / torus.dx;
+        double sy = sin(M_PI*j/torus.resy) / torus.dy;  
+        double sz = sin(M_PI*k/torus.resz) / torus.dz;
+        double denom = sx * sx + sy * sy + sz * sz;
+        double fac = 0.0;
         if(denom > 1e-16)
         {
           fac = -0.25 / denom;
@@ -134,7 +134,7 @@ __global__ void PoissonSolve_main()
         
 }
 
-void Torus_PoissonSolve(float* f)
+void Torus_PoissonSolve(double* f)
 {
   Torus_f2buf<<<1,1>>>(f);
   cudaDeviceSynchronize(); 
@@ -146,8 +146,8 @@ void Torus_PoissonSolve(float* f)
   // fft
   cufftHandle plan;
   cufftPlan3d(&plan, torus_cpu.resx, 
-              torus_cpu.resy, torus_cpu.resz, CUFFT_C2C);
-  cufftExecC2C(plan, torus_cpu.fftbuf, 
+              torus_cpu.resy, torus_cpu.resz, CUFFT_Z2Z);
+  cufftExecZ2Z(plan, torus_cpu.fftbuf, 
                        torus_cpu.fftbuf, CUFFT_FORWARD);
   cudaDeviceSynchronize();
   
@@ -155,14 +155,14 @@ void Torus_PoissonSolve(float* f)
   cudaDeviceSynchronize();   
 
   // ifft
-  cufftExecC2C(plan, torus_cpu.fftbuf, 
+  cufftExecZ2Z(plan, torus_cpu.fftbuf, 
                        torus_cpu.fftbuf, CUFFT_INVERSE);
   cudaDeviceSynchronize();
   cufftDestroy(plan);
   
 
   //Torus_printfft<<<1,1>>>();
-  //Torus_printfloat<<<1,1>>>(f);
+  //Torus_printdouble<<<1,1>>>(f);
   //cudaDeviceSynchronize();
   
 

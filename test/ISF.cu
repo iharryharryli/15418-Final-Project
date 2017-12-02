@@ -4,20 +4,20 @@
 
 struct ISF
 {
-  float hbar;
-  float dt;
-  cuFloatComplex* mask;
+  double hbar;
+  double dt;
+  cuDoubleComplex* mask;
   
-  float* vx;
-  float* vy;
-  float* vz;
+  double* vx;
+  double* vy;
+  double* vz;
 };
 
 __constant__ ISF isf;
 ISF isf_cpu;
 
 
-__global__ void ISF_Normalize(cuFloatComplex* psi1, cuFloatComplex* psi2)
+__global__ void ISF_Normalize(cuDoubleComplex* psi1, cuDoubleComplex* psi2)
 {
   for(int i=0; i<torus.resx; i++)
   {
@@ -25,7 +25,7 @@ __global__ void ISF_Normalize(cuFloatComplex* psi1, cuFloatComplex* psi2)
     {
       for(int k=0; k<torus.resz; k++)
       {
-        float psi_norm = 
+        double psi_norm = 
           sqrt(psi1->x*psi1->x+psi1->y*psi1->y+
                psi2->x*psi2->x+psi2->y*psi2->y);
         
@@ -39,8 +39,8 @@ __global__ void ISF_Normalize(cuFloatComplex* psi1, cuFloatComplex* psi2)
 
 __global__ void ISF_BuildSchroedinger()
 {
-  float nx = torus.resx, ny = torus.resy, nz = torus.resz;
-  float fac = -4.0 * M_PI * M_PI * isf.hbar;
+  double nx = torus.resx, ny = torus.resy, nz = torus.resz;
+  double fac = -4.0 * M_PI * M_PI * isf.hbar;
   
   for(int i=0; i<torus.resx; i++)
   {
@@ -48,14 +48,14 @@ __global__ void ISF_BuildSchroedinger()
     {
       for(int k=0; k<torus.resz; k++)
       {
-        float kx = (i - nx / 2) / torus.sizex;
-        float ky = (j - ny / 2) / torus.sizey;
-        float kz = (k - nz / 2) / torus.sizez;
-        float lambda = fac * (kx * kx + ky * ky + kz * kz);
+        double kx = (i - nx / 2) / torus.sizex;
+        double ky = (j - ny / 2) / torus.sizey;
+        double kz = (k - nz / 2) / torus.sizez;
+        double lambda = fac * (kx * kx + ky * ky + kz * kz);
         
         int ind = index3d(i,j,k);
         
-        cuFloatComplex inp;
+        cuDoubleComplex inp;
         inp.x = 0;
         inp.y = lambda * isf.dt / 2;
         
@@ -70,9 +70,9 @@ __global__ void ISF_BuildSchroedinger()
   printf("Done ISF_BuildSchroedinger \n"); 
 }
 
-__global__ void ISF_VelocityOneForm(cuFloatComplex* psi1, 
-                                    cuFloatComplex* psi2, 
-                                  float hbar)
+__global__ void ISF_VelocityOneForm(cuDoubleComplex* psi1, 
+                                    cuDoubleComplex* psi2, 
+                                  double hbar)
 {
   for(int i=0; i<torus.resx; i++)
   {
@@ -89,17 +89,17 @@ __global__ void ISF_VelocityOneForm(cuFloatComplex* psi1,
         int vyi = index3d(i,iyp,k);
         int vzi = index3d(i,j,izp);
         
-        cuFloatComplex vxraw = cuCaddf(
-          cuCmulf(cuConjf(psi1[ind]),psi1[vxi]),
-          cuCmulf(cuConjf(psi2[ind]),psi2[vxi])
+        cuDoubleComplex vxraw = cuCadd(
+          cuCmul(cuConj(psi1[ind]),psi1[vxi]),
+          cuCmul(cuConj(psi2[ind]),psi2[vxi])
           );
-        cuFloatComplex vyraw = cuCaddf(
-          cuCmulf(cuConjf(psi1[ind]),psi1[vyi]),
-          cuCmulf(cuConjf(psi2[ind]),psi2[vyi])
+        cuDoubleComplex vyraw = cuCadd(
+          cuCmul(cuConj(psi1[ind]),psi1[vyi]),
+          cuCmul(cuConj(psi2[ind]),psi2[vyi])
           );
-        cuFloatComplex vzraw = cuCaddf(
-          cuCmulf(cuConjf(psi1[ind]),psi1[vzi]),
-          cuCmulf(cuConjf(psi2[ind]),psi2[vzi])
+        cuDoubleComplex vzraw = cuCadd(
+          cuCmul(cuConj(psi1[ind]),psi1[vzi]),
+          cuCmul(cuConj(psi2[ind]),psi2[vzi])
           );
 
         isf.vx[ind] = angle_mycomplex(vxraw);
@@ -114,10 +114,10 @@ __global__ void ISF_VelocityOneForm(cuFloatComplex* psi1,
   }
 }
 
-__global__ void ISF_Neg_Normal_GaugeTransform(cuFloatComplex* psi1,
-                          cuFloatComplex* psi2, cuFloatComplex* q)
+__global__ void ISF_Neg_Normal_GaugeTransform(cuDoubleComplex* psi1,
+                          cuDoubleComplex* psi2, cuDoubleComplex* q)
 {
-  cuFloatComplex negi = make_cuFloatComplex(0.0, -1.0 / torus.plen);
+  cuDoubleComplex negi = make_cuDoubleComplex(0.0, -1.0 / torus.plen);
 
   for(int i=0; i<torus.resx; i++)
   {
@@ -126,19 +126,19 @@ __global__ void ISF_Neg_Normal_GaugeTransform(cuFloatComplex* psi1,
       for(int k=0; k<torus.resz; k++)
       {
         int ind = index3d(i,j,k);
-        cuFloatComplex eiq = 
-          exp_mycomplex( cuCmulf(negi, q[ind]) );
+        cuDoubleComplex eiq = 
+          exp_mycomplex( cuCmul(negi, q[ind]) );
 
-        psi1[ind] = cuCmulf(psi1[ind], eiq);
-        psi2[ind] = cuCmulf(psi2[ind], eiq);
+        psi1[ind] = cuCmul(psi1[ind], eiq);
+        psi2[ind] = cuCmul(psi2[ind], eiq);
 
       }
     }
   }
 }
 
-void ISF_PressureProject(cuFloatComplex* psi1,
-                          cuFloatComplex* psi2)
+void ISF_PressureProject(cuDoubleComplex* psi1,
+                          cuDoubleComplex* psi2)
 {
   ISF_VelocityOneForm<<<1,1>>>(psi1, psi2, 1.0);
   cudaDeviceSynchronize();
