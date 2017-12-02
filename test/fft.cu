@@ -1,6 +1,6 @@
 #include "depend.h"
 
-__global__ void printfft(cufftComplex *data, int len)
+__global__ void printfft(cufftDoubleComplex *data, int len)
 {
   for(int i=0; i<len; i++)
   {
@@ -11,25 +11,30 @@ __global__ void printfft(cufftComplex *data, int len)
 void fft()
 {
   int len = 10;
-  cufftComplex A[len];
+  cufftDoubleComplex A[len];
   for(int i=0; i<len; i++)
-    A[i] = make_cuFloatComplex(i,0.0);
+    A[i] = make_cuDoubleComplex(i,0.0);
   
-  cufftComplex* cudamem;
-  cudaMalloc(&cudamem, sizeof(cufftComplex) * len);
-  cudaMemcpy(cudamem, A, sizeof(cufftComplex)*len, cudaMemcpyHostToDevice);
+  cufftDoubleComplex* cudamem;
+  cudaMalloc(&cudamem, sizeof(cufftDoubleComplex) * len);
+  cudaMemcpy(cudamem, A, sizeof(cufftDoubleComplex)*len, 
+      cudaMemcpyHostToDevice);
 
-  cufftComplex *data;
-  cudaMalloc(&data, sizeof(cufftComplex) * len);
+  cufftDoubleComplex *data;
+  cudaMalloc(&data, sizeof(cufftDoubleComplex) * len);
 
   cufftHandle plan;
-  cufftPlan1d(&plan, len, CUFFT_C2C, 1);
+  cufftPlan2d(&plan, 2, 5, CUFFT_Z2Z);
 
-  cufftExecC2C(plan, cudamem, data, CUFFT_FORWARD);
+  cufftExecZ2Z(plan, cudamem, data, CUFFT_FORWARD);
 
   cudaDeviceSynchronize();
 
-  printfft<<<1,1>>>(data,len);
+  cufftExecZ2Z(plan, data, cudamem, CUFFT_INVERSE); 
+
+  cudaDeviceSynchronize();
+
+  printfft<<<1,1>>>(cudamem,len);
 
   cudaDeviceSynchronize();
 

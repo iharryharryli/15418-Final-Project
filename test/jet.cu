@@ -165,6 +165,8 @@ __global__ void constrain_velocity_iter()
             /*if(para.psi1[ind].x < -0.34)
               printf("%d %d %d %f\n",i,j,k,para.psi1[ind].x);*/
 
+            //printf("%d %d %d %f\n",i,j,k,para.psi1[ind].x);
+
             para.psi2[ind] = exp_mycomplex( 
                      make_cuFloatComplex(0.0, para.phase[ind]));
             mul_mycomplex(&para.psi2[ind], amp2);
@@ -176,9 +178,25 @@ __global__ void constrain_velocity_iter()
     }
 }
 
+__global__ void print_psi()
+{
+    for(int i=0; i<torus.resx; i++)
+    {
+      for(int j=0; j<torus.resy; j++)
+      {
+        for(int k=0; k<torus.resz; k++)
+        {
+          int ind = index3d(i,j,k);
+          printf("%f %f\n", para.psi1[ind].x, para.psi1[ind].y);
+        }
+      }
+    }
+}
+
+
 void constrain_velocity()
 {
-  for(int i=0; i<1; i++)
+  for(int i=0; i<2; i++)
   {
     constrain_velocity_iter<<<1,1>>>();
     cudaDeviceSynchronize();
@@ -186,6 +204,10 @@ void constrain_velocity()
 
     printf("iteration success \n");
   }
+
+  //print_psi<<<1,1>>>();
+  cudaDeviceSynchronize(); 
+
 }
 
 

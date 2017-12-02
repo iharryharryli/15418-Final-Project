@@ -16,31 +16,6 @@ struct ISF
 __constant__ ISF isf;
 ISF isf_cpu;
 
-__device__ cuFloatComplex exp_mycomplex(cuFloatComplex inp)
-{
-  cuFloatComplex res;
-  res.x = exp(inp.x) * cos(inp.y);
-  res.y = exp(inp.x) * sin(inp.y);
-  return res;
-}
-
-__device__ void div_mycomplex(cuFloatComplex* n, float d)
-{
-  n -> x /= d;
-  n -> y /= d;
-}
-
-__device__ void mul_mycomplex(cuFloatComplex* n, float d)
-{
-  n -> x *= d;
-  n -> y *= d;
-}
-
-__device__ float angle_mycomplex(cuFloatComplex inp)
-{
-  float res =  atan2(inp.y, inp.x);
-  return res;
-}
 
 __global__ void ISF_Normalize(cuFloatComplex* psi1, cuFloatComplex* psi2)
 {
@@ -139,6 +114,29 @@ __global__ void ISF_VelocityOneForm(cuFloatComplex* psi1,
   }
 }
 
+__global__ void ISF_Neg_Normal_GaugeTransform(cuFloatComplex* psi1,
+                          cuFloatComplex* psi2, cuFloatComplex* q)
+{
+  cuFloatComplex negi = make_cuFloatComplex(0.0, -1.0 / torus.plen);
+
+  for(int i=0; i<torus.resx; i++)
+  {
+    for(int j=0; j<torus.resy; j++)
+    {
+      for(int k=0; k<torus.resz; k++)
+      {
+        int ind = index3d(i,j,k);
+        cuFloatComplex eiq = 
+          exp_mycomplex( cuCmulf(negi, q[ind]) );
+
+        psi1[ind] = cuCmulf(psi1[ind], eiq);
+        psi2[ind] = cuCmulf(psi2[ind], eiq);
+
+      }
+    }
+  }
+}
+
 void ISF_PressureProject(cuFloatComplex* psi1,
                           cuFloatComplex* psi2)
 {
@@ -146,7 +144,15 @@ void ISF_PressureProject(cuFloatComplex* psi1,
   cudaDeviceSynchronize();
   Torus_Div<<<1,1>>>(isf_cpu.vx, isf_cpu.vy, isf_cpu.vz); 
   cudaDeviceSynchronize();
+
   Torus_PoissonSolve(torus_cpu.out);
+
+  ISF_Neg_Normal_GaugeTransform<<<1,1>>>(psi1,psi2,torus_cpu.fftbuf);
+  cudaDeviceSynchronize(); 
+
 }
+
+
+
 
 

@@ -1,4 +1,5 @@
 #include "depend.h"
+#include "mycomplex.cu"
 struct Torus
 {
   int resx,resy,resz;
@@ -68,7 +69,8 @@ __global__ void Torus_printfft()
       for(int k=0; k<torus.resz; k++)
       {
         int ind = index3d(i,j,k);
-        printf("%f %f\n", torus.fftbuf[ind].x, torus.fftbuf[ind].y);
+        printf("%f %f\n", torus.fftbuf[ind].x / torus.plen, 
+              torus.fftbuf[ind].y / torus.plen);
       }
     }
   }
@@ -84,7 +86,7 @@ __global__ void Torus_printfloat(float* f)
       for(int k=0; k<torus.resz; k++)
       {
         int ind = index3d(i,j,k);
-        if(f[ind]>1.0)printf("%f\n", f[ind]);
+        printf("%f\n", f[ind]);
       }
     }
   }
@@ -100,16 +102,47 @@ __global__ void Torus_f2buf(float* f)
       {
         int ind = index3d(i,j,k);
         torus.fftbuf[ind] = make_cuFloatComplex(f[ind],0.0);
-        }
+       }
     }
   }
+}
+
+__global__ void PoissonSolve_main()
+{
+  for(int i=0; i<torus.resx; i++)
+  {
+    for(int j=0; j<torus.resy; j++)
+    {
+      for(int k=0; k<torus.resz; k++)
+      {
+        int ind = index3d(i,j,k);   
+        float sx = sin(M_PI*i/torus.resx) / torus.dx;
+        float sy = sin(M_PI*j/torus.resy) / torus.dy;  
+        float sz = sin(M_PI*k/torus.resz) / torus.dz;
+        float denom = sx * sx + sy * sy + sz * sz;
+        float fac = 0.0;
+        if(denom > 1e-16)
+        {
+          fac = -0.25 / denom;
+        }
+        //mul_mycomplex(&torus.fftbuf[ind], fac);
+        torus.fftbuf[ind].x *= fac;
+        torus.fftbuf[ind].y *= fac;
+      }
+    }
+  }    
+        
 }
 
 void Torus_PoissonSolve(float* f)
 {
   Torus_f2buf<<<1,1>>>(f);
   cudaDeviceSynchronize(); 
-  
+ 
+
+  //Torus_printfft<<<1,1>>>(); cudaDeviceSynchronize(); 
+
+
   // fft
   cufftHandle plan;
   cufftPlan3d(&plan, torus_cpu.resx, 
@@ -117,7 +150,16 @@ void Torus_PoissonSolve(float* f)
   cufftExecC2C(plan, torus_cpu.fftbuf, 
                        torus_cpu.fftbuf, CUFFT_FORWARD);
   cudaDeviceSynchronize();
+  
+  PoissonSolve_main<<<1,1>>>();
+  cudaDeviceSynchronize();   
+
+  // ifft
+  cufftExecC2C(plan, torus_cpu.fftbuf, 
+                       torus_cpu.fftbuf, CUFFT_INVERSE);
+  cudaDeviceSynchronize();
   cufftDestroy(plan);
+  
 
   //Torus_printfft<<<1,1>>>();
   //Torus_printfloat<<<1,1>>>(f);
