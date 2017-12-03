@@ -38,6 +38,7 @@ __global__ void ISF_Normalize(cuDoubleComplex* psi1, cuDoubleComplex* psi2)
 }
 
 __global__ void ISF_BuildSchroedinger()
+// Initializes the complex components of the field
 {
   double nx = torus.resx, ny = torus.resy, nz = torus.resz;
   double fac = -4.0 * M_PI * M_PI * isf.hbar;
@@ -68,6 +69,26 @@ __global__ void ISF_BuildSchroedinger()
   }
 
   printf("Done ISF_BuildSchroedinger \n"); 
+}
+
+// function [psi1,psi2] = SchroedingerFlow(obj,psi1,psi2)
+//         % solves Schroedinger equation for dt time.
+//         %
+//             psi1 = fftshift(fftn(psi1)); psi2 = fftshift(fftn(psi2));
+//             psi1 = psi1.*obj.SchroedingerMask;
+//             psi2 = psi2.*obj.SchroedingerMask;
+//             psi1 = ifftn(fftshift(psi1)); psi2 = ifftn(fftshift(psi2));
+//         end
+
+__global__ void ISF_SchroedingerFlow(cuDoubleComplex* psi1,
+                                     cuDoubleComplex* psi2)
+// Solves Schroedinger equation for dt time
+// TODO: Implement this!
+{
+  // psi1 = fftshift(fftn(psi1)); psi2 = fftshift(fftn(psi2));
+  // psi1 = psi1.*obj.SchroedingerMask;
+  // psi2 = psi2.*obj.SchroedingerMask;
+  // psi1 = ifftn(fftshift(psi1)); psi2 = ifftn(fftshift(psi2));
 }
 
 __global__ void ISF_VelocityOneForm(cuDoubleComplex* psi1, 

@@ -69,8 +69,6 @@ __global__ void set_nozzle_and_phase_and_psi()
 
 }
 
-
-
 void para_init(Torus* p, ISF* q, para_t* t)
 {
   cudaMalloc(&(t -> psi1),
@@ -111,6 +109,7 @@ void para_init(Torus* p, ISF* q, para_t* t)
 }
 
 void isf_init(Torus* p, ISF* q)
+// Includes a bunch of hard-coded values
 {
   p -> resx = 64;
   p -> resy = 32;
@@ -195,6 +194,7 @@ __global__ void print_psi()
 
 
 void constrain_velocity()
+// A special procedure we need to do in order for the jet dynamics to work
 {
   for(int i=0; i<10; i++)
   {
@@ -205,8 +205,8 @@ void constrain_velocity()
     printf("iteration success \n");
   }
 
-  print_psi<<<1,1>>>();
-  cudaDeviceSynchronize(); 
+  // print_psi<<<1,1>>>();
+  // cudaDeviceSynchronize(); 
 
 }
 

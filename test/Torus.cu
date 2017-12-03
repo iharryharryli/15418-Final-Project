@@ -28,6 +28,14 @@ index3d(int i, int j, int k)
   return (k + j*torus.resz + i*torus.resz*torus.resy);
 }
 
+__device__  __inline__  void 
+getCoords(int i, int *x, int *y, int *z)
+{
+  *x = i / (torus.resz * torus.resy);
+  *y = (i % (torus.resz * torus.resy)) / torus.resz;
+  *z = (i % (torus.resz * torus.resy)) % torus.resz;
+}
+
 __global__ void Torus_Div (double* vx, double* vy, double* vz)
 {
 
@@ -164,7 +172,69 @@ void Torus_PoissonSolve(double* f)
   //Torus_printfft<<<1,1>>>();
   //Torus_printdouble<<<1,1>>>(f);
   //cudaDeviceSynchronize();
-  
 
 }
+
+//*********** not tested! ***********
+__global__ void fftshift(cufftDoubleComplex *data)
+// The thing is: fftshift for even and odd dimensional arrays 
+// are really different -- the even case is much simpler than the odd case
+// To save ourselves the trouble we will only implement the even fftshift
+// and give an error when the input has odd dimension
+{
+  int xs = torus.resx / 2;
+  int ys = torus.resy / 2;
+  int zs = torus.resz / 2;
+  int len = torus.resx * torus.resy * torus.resz;
+  int x, y, z = 0;
+  int j;
+
+  if (len % 2 == 1){
+    printf("Error: fftshift only supports even sized grid!\n");
+    return;
+  }
+
+  for (int i=0; i<len/2; i++)
+  {
+    cufftDoubleComplex temp = data[i];
+    getCoords(i, &x, &y, &z);
+    x = (x + xs) % torus.resx;
+    y = (y + ys) % torus.resy;
+    z = (z + zs) % torus.resz;
+    j = index3d(x, y, z);
+    data[i] = data[j];
+    data[j] = temp;
+  }
+}
+
+//*********** not tested! ***********
+__global__ void ifftshift(cufftDoubleComplex *data)
+// Since we are only working with even-sized arrays
+// ifftshift is equivalent with fftshift
+{
+  int xs = torus.resx / 2;
+  int ys = torus.resy / 2;
+  int zs = torus.resz / 2;
+  int len = torus.resx * torus.resy * torus.resz;
+  int x, y, z = 0;
+  int j;
+
+  if (len % 2 == 1){
+    printf("Error: fftshift only supports even sized grid!\n");
+    return;
+  }
+
+  for (int i=0; i<len/2; i++)
+  {
+    cufftDoubleComplex temp = data[i];
+    getCoords(i, &x, &y, &z);
+    x = (x + xs) % torus.resx;
+    y = (y + ys) % torus.resy;
+    z = (z + zs) % torus.resz;
+    j = index3d(x, y, z);
+    data[i] = data[j];
+    data[j] = temp;
+  }
+}
+
 
