@@ -69,8 +69,6 @@ __global__ void set_nozzle_and_phase_and_psi()
 
 }
 
-
-
 void para_init(Torus* p, ISF* q, para_t* t)
 {
   cudaMalloc(&(t -> psi1),
@@ -111,6 +109,7 @@ void para_init(Torus* p, ISF* q, para_t* t)
 }
 
 void isf_init(Torus* p, ISF* q)
+// Includes a bunch of hard-coded values
 {
   p -> resx = 64;
   p -> resy = 32;
@@ -144,6 +143,7 @@ void isf_init(Torus* p, ISF* q)
 }
 
 __global__ void constrain_velocity_iter()
+// A special procedure we need to do in order for the jet dynamics to work
 {
     for(int i=0; i<torus.resx; i++)
     {
@@ -213,10 +213,14 @@ void constrain_velocity()
 void jet_setup()
 {
 
+  // Basic setup
+
   isf_init(&torus_cpu, &isf_cpu);
   para_init(&torus_cpu, &isf_cpu, &para_cpu);
 
   ISF_BuildSchroedinger<<<1,1>>>();
+
+  // Jet-specific setup
 
   set_nozzle_and_phase_and_psi<<<1,1>>>();
 
@@ -224,7 +228,17 @@ void jet_setup()
 
   constrain_velocity();
 
-  cudaDeviceSynchronize();
+  // Main algorithm
+  int itermax = 24;
+  for (int i=0; i<itermax; i++)
+  {
+    // Simulate Incompressible Schroedinger Flow
+    // ISF_SchroedingerFlow(para_cpu.psi1, para_cpu.psi2);
+    // ISF_Normalize(para_cpu.psi1, para_cpu.psi2);
+    // ISF_PressureProject(para_cpu.psi1, para_cpu.psi2);
 
-  
+    // Do particle advection
+
+
+  }
 }
