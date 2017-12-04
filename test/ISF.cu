@@ -25,12 +25,11 @@ __global__ void ISF_Normalize(cuDoubleComplex* psi1, cuDoubleComplex* psi2)
     {
       for(int k=0; k<torus.resz; k++)
       {
-        int ind = index3d(i,j,k);
-        
         double psi_norm = 
-          sqrt(psi1[ind].x*psi1[ind].x+psi1[ind].y*psi1[ind].y+
-               psi2[ind].x*psi2[ind].x+psi2[ind].y*psi2[ind].y);
+          sqrt(psi1->x*psi1->x+psi1->y*psi1->y+
+               psi2->x*psi2->x+psi2->y*psi2->y);
         
+        int ind = index3d(i,j,k);
         div_mycomplex(&psi1[ind], psi_norm);
         div_mycomplex(&psi2[ind], psi_norm);
       }
@@ -94,13 +93,13 @@ void ISF_SchroedingerFlow(cuDoubleComplex* psi1,
   fftshift<<<1,1>>>(psi1);
   cudaDeviceSynchronize();
 
-  int len = torus_cpu.resx * torus_cpu.resy * torus_cpu.resz;
+  int len = torus.resx * torus.resy * torus.resz;
 
   // Elementwise multiplication, easy to make parallel
   for (int i=0; i<len; i++)
   {
-    psi1[i] = cuCmul(psi1[i], isf.mask[i]);
-    psi2[i] = cuCmul(psi2[i], isf.mask[i]);
+    psi1[i] = cuCmul(psi1[i], isf_cpu.mask[i]);
+    psi2[i] = cuCmul(psi2[i], isf_cpu.mask[i]);
   }
 
   // Matlab code used fftshift here, which I believe is wrong
@@ -148,11 +147,9 @@ __global__ void ISF_VelocityOneForm(cuDoubleComplex* psi1,
         isf.vx[ind] = angle_mycomplex(vxraw);
         isf.vy[ind] = angle_mycomplex(vyraw);
         isf.vz[ind] = angle_mycomplex(vzraw);
-        
-        //printf("%f %f %f\n", isf.vx[ind], isf.vy[ind], isf.vz[ind]);
 
-        //if(isf.vx[ind] > 1.2)
-          //printf("%f\n", isf.vx[ind]);
+        /*if(isf.vx[ind] > 1.2)
+          printf("%f\n", isf.vx[ind]);*/
 
       }
     }
@@ -189,7 +186,7 @@ void ISF_PressureProject(cuDoubleComplex* psi1,
   cudaDeviceSynchronize();
   Torus_Div<<<1,1>>>(isf_cpu.vx, isf_cpu.vy, isf_cpu.vz); 
   cudaDeviceSynchronize();
-  
+
   Torus_PoissonSolve(torus_cpu.out);
 
   ISF_Neg_Normal_GaugeTransform<<<1,1>>>(psi1,psi2,torus_cpu.fftbuf);
