@@ -205,8 +205,7 @@ void constrain_velocity()
     printf("iteration success \n");
   }
 
-  print_psi<<<1,1>>>();
-  cudaDeviceSynchronize(); 
+  //print_psi<<<1,1>>>(); cudaDeviceSynchronize(); 
 
 }
 
