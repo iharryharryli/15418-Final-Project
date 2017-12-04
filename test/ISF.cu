@@ -80,15 +80,36 @@ __global__ void ISF_BuildSchroedinger()
 //             psi1 = ifftn(fftshift(psi1)); psi2 = ifftn(fftshift(psi2));
 //         end
 
-__global__ void ISF_SchroedingerFlow(cuDoubleComplex* psi1,
+
+//*********** not tested! ***********
+void ISF_SchroedingerFlow(cuDoubleComplex* psi1,
                                      cuDoubleComplex* psi2)
 // Solves Schroedinger equation for dt time
-// TODO: Implement this!
 {
-  // psi1 = fftshift(fftn(psi1)); psi2 = fftshift(fftn(psi2));
-  // psi1 = psi1.*obj.SchroedingerMask;
-  // psi2 = psi2.*obj.SchroedingerMask;
-  // psi1 = ifftn(fftshift(psi1)); psi2 = ifftn(fftshift(psi2));
+  fftn(psi1);
+  fftn(psi2);
+  cudaDeviceSynchronize();
+  fftshift<<<1,1>>>(psi1); 
+  fftshift<<<1,1>>>(psi1);
+  cudaDeviceSynchronize();
+
+  int len = torus.resx * torus.resy * torus.resz;
+
+  // Elementwise multiplication, easy to make parallel
+  for (int i=0; i<len; i++)
+  {
+    psi1[i] = cuCmul(psi1[i], isf.mask[i]);
+    psi2[i] = cuCmul(psi2[i], isf.mask[i]);
+  }
+
+  // Matlab code used fftshift here, which I believe is wrong
+  // Doesn't matter here when we use even sized grid though
+  ifftshift<<<1,1>>>(psi1);
+  ifftshift<<<1,1>>>(psi2);
+  cudaDeviceSynchronize();
+  ifftn(psi1);
+  ifftn(psi2);
+  cudaDeviceSynchronize();
 }
 
 __global__ void ISF_VelocityOneForm(cuDoubleComplex* psi1, 

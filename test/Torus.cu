@@ -143,6 +143,7 @@ __global__ void PoissonSolve_main()
 }
 
 void Torus_PoissonSolve(double* f)
+// TODO: Use the fft helper function
 {
   Torus_f2buf<<<1,1>>>(f);
   cudaDeviceSynchronize(); 
@@ -235,6 +236,22 @@ __global__ void ifftshift(cufftDoubleComplex *data)
     data[i] = data[j];
     data[j] = temp;
   }
+}
+
+void fftn(cufftDoubleComplex *data)
+{
+  cufftHandle plan;
+  cufftPlan3d(&plan, torus_cpu.resx, torus_cpu.resy, torus_cpu.resz, CUFFT_Z2Z);
+  cufftExecZ2Z(plan, data, data, CUFFT_FORWARD);
+  cudaDeviceSynchronize();
+}
+
+void ifftn(cufftDoubleComplex *data)
+{
+  cufftHandle plan;
+  cufftPlan3d(&plan, torus_cpu.resx, torus_cpu.resy, torus_cpu.resz, CUFFT_Z2Z);
+  cufftExecZ2Z(plan, data, data, CUFFT_INVERSE); 
+  cudaDeviceSynchronize();
 }
 
 
