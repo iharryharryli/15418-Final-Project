@@ -6,9 +6,13 @@ struct Torus
   int sizex,sizey,sizez;
   double dx,dy,dz;
 
+  double* vx;
+  double* vy;
+  double* vz;
+
   int plen;
 
-  double* out;
+  double* div;
   cuDoubleComplex* fftbuf;
 };
 
@@ -36,46 +40,39 @@ getCoords(int i, int *x, int *y, int *z)
   *z = (i % (torus.resz * torus.resy)) % torus.resz;
 }
 
-__global__ void Torus_Div (double* vx, double* vy, double* vz)
+__global__ void Torus_Div ()
 {
 
   double dx2 = torus.dx * torus.dx;
   double dy2 = torus.dy * torus.dy;
   double dz2 = torus.dz * torus.dz;
 
-  
+  double* vx = torus.vx;
+  double* vy = torus.vx;
+  double* vz = torus.vz;
+
   for(int i=0; i<torus.resx; i++)
   {
     for(int j=0; j<torus.resy; j++)
     {
       for(int k=0; k<torus.resz; k++)
       {
-        int ixm = (i  + torus.resx - 1) % torus.resx;
-        int iym = (j  + torus.resy - 1) % torus.resy;
-        int izm = (k  + torus.resz - 1) % torus.resz;
+        int ixm = (i - 1) % torus.resx;
+        int iym = (j - 1) % torus.resy;
+        int izm = (k - 1) % torus.resz;
 
         int normal_index = index3d(i,j,k);
         
-        //printf("%f %f %f\n", vx[normal_index],
-        //        vy[normal_index], vz[normal_index]); 
-
-        torus.out[normal_index] = 
+        torus.div[normal_index] = 
           (vx[normal_index] - vx[index3d(ixm,j,k)])/dx2;
-        torus.out[normal_index] +=
+        torus.div[normal_index] +=
           (vy[normal_index] - vy[index3d(i,iym,k)])/dy2;
-        torus.out[normal_index] +=
+        torus.div[normal_index] +=
           (vz[normal_index] - vz[index3d(i,j,izm)])/dz2;
-   
-        //if(torus.out[normal_index] > 0.0)
-        //  count++;
-        //printf("%d %d %d %d %d\n", normal_index, 
-        //      index3d(ixm,j,k));
-        
-        //printf("%f\n", torus.out[normal_index]);
+
       }
     }
   }
-
 
 }
 
@@ -88,11 +85,12 @@ __global__ void Torus_printfft()
       for(int k=0; k<torus.resz; k++)
       {
         int ind = index3d(i,j,k);
-        printf("%f %f\n", torus.fftbuf[ind].x, 
-              torus.fftbuf[ind].y);
+        printf("%f %f\n", torus.fftbuf[ind].x / torus.plen, 
+              torus.fftbuf[ind].y / torus.plen);
       }
     }
   }
+
 }
 
 __global__ void Torus_printdouble(double* f)
@@ -104,14 +102,13 @@ __global__ void Torus_printdouble(double* f)
       for(int k=0; k<torus.resz; k++)
       {
         int ind = index3d(i,j,k);
-        if(f[ind] > 0)
-        printf("%d %d %d %f\n", i,j,k,f[ind]);
+        printf("%f\n", f[ind]);
       }
     }
   }
 }
 
-__global__ void Torus_f2buf(double* f)
+__global__ void Torus_div2buf()
 {
   for(int i=0; i<torus.resx; i++)
   {
@@ -120,7 +117,7 @@ __global__ void Torus_f2buf(double* f)
       for(int k=0; k<torus.resz; k++)
       {
         int ind = index3d(i,j,k);
-        torus.fftbuf[ind] = make_cuDoubleComplex(f[ind],0.0);
+        torus.fftbuf[ind] = make_cuDoubleComplex(torus.div[ind],0.0);
        }
     }
   }
@@ -140,7 +137,7 @@ __global__ void PoissonSolve_main()
         double sz = sin(M_PI*k/torus.resz) / torus.dz;
         double denom = sx * sx + sy * sy + sz * sz;
         double fac = 0.0;
-        if(ind > 0)
+        if(denom > 1e-16)
         {
           fac = -0.25 / denom;
         }
@@ -153,38 +150,40 @@ __global__ void PoissonSolve_main()
         
 }
 
-void Torus_PoissonSolve(double* f)
-// TODO: Use the fft helper function
+void Torus_PoissonSolve()
+// TODO: This is a crazy amount of passing data back and forth...
 {
-  Torus_f2buf<<<1,1>>>(f);
+  Torus_div2buf<<<1,1>>>();
   cudaDeviceSynchronize(); 
  
 
   //Torus_printfft<<<1,1>>>(); cudaDeviceSynchronize(); 
 
-
   // fft
-  cufftHandle plan;
-  cufftPlan3d(&plan, torus_cpu.resx, 
-              torus_cpu.resy, torus_cpu.resz, CUFFT_Z2Z);
-  cufftExecZ2Z(plan, torus_cpu.fftbuf, 
-                       torus_cpu.fftbuf, CUFFT_FORWARD);
-  cudaDeviceSynchronize();
-  
-  //Torus_printfft<<<1,1>>>(); cudaDeviceSynchronize();
+  cudaMemcpyFromSymbol(torus_cpu.fftbuf, torus.fftbuf, 
+    sizeof(cuDoubleComplex) * torus_cpu.plen)
 
+  cufftPlan plan = fftn(torus_cpu.fftbuf);
+
+  cudaMemcpyToSymbol(torus.fftbuf, torus_cpu.fftbuf, 
+    sizeof(cuDoubleComplex) * torus_cpu.plen)
+
+  // Do work in the fourier space
   PoissonSolve_main<<<1,1>>>();
   cudaDeviceSynchronize();   
 
   // ifft
-  cufftExecZ2Z(plan, torus_cpu.fftbuf, 
-                       torus_cpu.fftbuf, CUFFT_INVERSE);
-  cudaDeviceSynchronize();
-  cufftDestroy(plan);
+  cudaMemcpyFromSymbol(torus_cpu.fftbuf, torus.fftbuf, 
+    sizeof(cuDoubleComplex) * torus_cpu.plen)
+
+  ifftn(torus_cpu.fftbuf, plan);
   
+  cudaMemcpyToSymbol(torus.fftbuf, torus_cpu.fftbuf, 
+    sizeof(cuDoubleComplex) * torus_cpu.plen)
 
   //Torus_printfft<<<1,1>>>();
   //Torus_printdouble<<<1,1>>>(f);
+
 
 
 }
@@ -251,20 +250,22 @@ __global__ void ifftshift(cufftDoubleComplex *data)
   }
 }
 
-void fftn(cufftDoubleComplex *data)
+cufftHandle fftn(cufftDoubleComplex *data)
+// Returns the cufft plan created
 {
   cufftHandle plan;
   cufftPlan3d(&plan, torus_cpu.resx, torus_cpu.resy, torus_cpu.resz, CUFFT_Z2Z);
   cufftExecZ2Z(plan, data, data, CUFFT_FORWARD);
   cudaDeviceSynchronize();
+  return plan;
 }
 
-void ifftn(cufftDoubleComplex *data)
+void ifftn(cufftDoubleComplex *data, cufftHandle plan)
+// Destorys the cufft plan after finshing
 {
-  cufftHandle plan;
-  cufftPlan3d(&plan, torus_cpu.resx, torus_cpu.resy, torus_cpu.resz, CUFFT_Z2Z);
   cufftExecZ2Z(plan, data, data, CUFFT_INVERSE); 
   cudaDeviceSynchronize();
+  cufftDestroy(plan);
 }
 
 

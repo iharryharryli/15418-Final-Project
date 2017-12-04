@@ -6,6 +6,9 @@ struct particles_t
   double *x;
   double *y;
   double *z;
+  double* vx;
+  double* vy;
+  double* vz;
 };
 
 __constant__ particles_t particles;
@@ -36,7 +39,7 @@ __global__ void StaggeredAdvect()
     // particle.z = particle.z + dt/6*(k1z+2*k2z+2*k3z+k4z);
 }
 
-__global__ void StaggeredVelocity()
+__global__ void StaggeredVelocity(double* vx, double* vy, double* vz)
 // evaluates velocity at (px,py,pz) in the grid torus with staggered
 // velocity vector field vx,vy,vz
 {

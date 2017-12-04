@@ -7,18 +7,35 @@ struct ISF
   double hbar;
   double dt;
   cuDoubleComplex* mask;
-  
-  double* vx;
-  double* vy;
-  double* vz;
 };
 
+struct para_t
+{
+  double jet_velocity[3];
+
+  char* isJet;
+
+  cuDoubleComplex* psi1;
+  cuDoubleComplex* psi2;
+
+
+  double kvec[3];
+  double omega;
+  double* phase;
+  
+
+};
+
+__constant__ para_t para;
+para_t para_cpu;
 __constant__ ISF isf;
 ISF isf_cpu;
 
 
-__global__ void ISF_Normalize(cuDoubleComplex* psi1, cuDoubleComplex* psi2)
+__global__ void ISF_Normalize()
 {
+  cuDoubleComplex* psi1 = para.psi1;
+  cuDoubleComplex* psi2 = para.psi2;
   for(int i=0; i<torus.resx; i++)
   {
     for(int j=0; j<torus.resy; j++)
@@ -82,15 +99,18 @@ __global__ void ISF_BuildSchroedinger()
 
 
 //*********** not tested! ***********
-void ISF_SchroedingerFlow(cuDoubleComplex* psi1,
-                                     cuDoubleComplex* psi2)
+void ISF_SchroedingerFlow()
 // Solves Schroedinger equation for dt time
 {
-  fftn(psi1);
-  fftn(psi2);
+  cudaMemcpyFromSymbol(para_cpu.psi1, para.psi1, 
+    sizeof(cuDoubleComplex) * torus_cpu.plen)
+  cudaMemcpyFromSymbol(para_cpu.psi2, para.psi2, 
+    sizeof(cuDoubleComplex) * torus_cpu.plen)
+  cufftPlan plan1 = fftn(para_cpu.psi1);
+  cufftPlan plan2 = fftn(para_cpu.psi2);
   cudaDeviceSynchronize();
-  fftshift<<<1,1>>>(psi1); 
-  fftshift<<<1,1>>>(psi1);
+  fftshift<<<1,1>>>(para_cpu.psi1); 
+  fftshift<<<1,1>>>(para_cpu.psi2);
   cudaDeviceSynchronize();
 
   int len = torus.resx * torus.resy * torus.resz;
@@ -98,24 +118,29 @@ void ISF_SchroedingerFlow(cuDoubleComplex* psi1,
   // Elementwise multiplication, easy to make parallel
   for (int i=0; i<len; i++)
   {
-    psi1[i] = cuCmul(psi1[i], isf_cpu.mask[i]);
-    psi2[i] = cuCmul(psi2[i], isf_cpu.mask[i]);
+    para_cpu.psi1[i] = cuCmul(para_cpu.psi1[i], isf_cpu.mask[i]);
+    para_cpu.psi2[i] = cuCmul(para_cpu.psi2[i], isf_cpu.mask[i]);
   }
 
   // Matlab code used fftshift here, which I believe is wrong
   // Doesn't matter here when we use even sized grid though
-  ifftshift<<<1,1>>>(psi1);
-  ifftshift<<<1,1>>>(psi2);
+  ifftshift<<<1,1>>>(para_cpu.psi1);
+  ifftshift<<<1,1>>>(para_cpu.psi2);
   cudaDeviceSynchronize();
-  ifftn(psi1);
-  ifftn(psi2);
+  ifftn(para_cpu.psi1, plan1);
+  ifftn(para_cpu.psi2, plan2);
   cudaDeviceSynchronize();
+  cudaMemcpyToSymbol(para.psi1, para_cpu.psi1, 
+    sizeof(cuDoubleComplex) * torus_cpu.plen)
+  cudaMemcpyToSymbol(para.psi2, para_cpu.psi2, 
+    sizeof(cuDoubleComplex) * torus_cpu.plen)
 }
 
-__global__ void ISF_VelocityOneForm(cuDoubleComplex* psi1, 
-                                    cuDoubleComplex* psi2, 
-                                  double hbar)
+__global__ void ISF_VelocityOneForm()
 {
+  cuDoubleComplex* psi1 = para.psi1;
+  cuDoubleComplex* psi2 = para.psi2;
+  double hbar = isf.hbar;
   for(int i=0; i<torus.resx; i++)
   {
     for(int j=0; j<torus.resy; j++)
@@ -144,9 +169,9 @@ __global__ void ISF_VelocityOneForm(cuDoubleComplex* psi1,
           cuCmul(cuConj(psi2[ind]),psi2[vzi])
           );
 
-        isf.vx[ind] = angle_mycomplex(vxraw);
-        isf.vy[ind] = angle_mycomplex(vyraw);
-        isf.vz[ind] = angle_mycomplex(vzraw);
+        torus.vx[ind] = angle_mycomplex(vxraw) * hbar;
+        torus.vy[ind] = angle_mycomplex(vyraw) * hbar;
+        torus.vz[ind] = angle_mycomplex(vzraw) * hbar;
 
         /*if(isf.vx[ind] > 1.2)
           printf("%f\n", isf.vx[ind]);*/
@@ -156,11 +181,12 @@ __global__ void ISF_VelocityOneForm(cuDoubleComplex* psi1,
   }
 }
 
-__global__ void ISF_Neg_Normal_GaugeTransform(cuDoubleComplex* psi1,
-                          cuDoubleComplex* psi2, cuDoubleComplex* q)
+__global__ void ISF_Neg_Normal_GaugeTransform()
 {
   cuDoubleComplex negi = make_cuDoubleComplex(0.0, -1.0 / torus.plen);
-
+  cuDoubleComplex* psi1 = para.psi1;
+  cuDoubleComplex* psi2 = para.psi2;
+  cuDoubleComplex* q = torus.fftbuf;
   for(int i=0; i<torus.resx; i++)
   {
     for(int j=0; j<torus.resy; j++)
@@ -179,17 +205,16 @@ __global__ void ISF_Neg_Normal_GaugeTransform(cuDoubleComplex* psi1,
   }
 }
 
-void ISF_PressureProject(cuDoubleComplex* psi1,
-                          cuDoubleComplex* psi2)
+void ISF_PressureProject()
 {
-  ISF_VelocityOneForm<<<1,1>>>(psi1, psi2, 1.0);
+  ISF_VelocityOneForm<<<1,1>>>();
   cudaDeviceSynchronize();
-  Torus_Div<<<1,1>>>(isf_cpu.vx, isf_cpu.vy, isf_cpu.vz); 
+  Torus_Div<<<1,1>>>(); 
   cudaDeviceSynchronize();
 
-  Torus_PoissonSolve(torus_cpu.out);
+  Torus_PoissonSolve();
 
-  ISF_Neg_Normal_GaugeTransform<<<1,1>>>(psi1,psi2,torus_cpu.fftbuf);
+  ISF_Neg_Normal_GaugeTransform<<<1,1>>>();
   cudaDeviceSynchronize(); 
 
 }
