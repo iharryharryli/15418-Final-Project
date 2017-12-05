@@ -1,7 +1,5 @@
 #include "Torus.cu"
 
-
-
 struct ISF
 {
   double hbar;
@@ -31,8 +29,7 @@ para_t para_cpu;
 __constant__ ISF isf;
 ISF isf_cpu;
 
-
-__global__ void ISF_Normalize()
+__global__ void ISF_Normalize_kernel()
 {
   cuDoubleComplex* psi1 = para.psi1;
   cuDoubleComplex* psi2 = para.psi2;
@@ -54,7 +51,12 @@ __global__ void ISF_Normalize()
   }
 }
 
-__global__ void ISF_BuildSchroedinger()
+void ISF_Normalize()
+{
+  ISF_Normalize_kernel<<<1,1>>>();
+}
+
+__global__ void ISF_BuildSchroedinger_kernel()
 // Initializes the complex components of the field
 {
   double nx = torus.resx, ny = torus.resy, nz = torus.resz;
@@ -88,6 +90,11 @@ __global__ void ISF_BuildSchroedinger()
   printf("Done ISF_BuildSchroedinger \n"); 
 }
 
+void ISF_BuildSchroedinger()
+{
+  ISF_BuildSchroedinger_kernel<<<1,1>>>();
+}
+
 // function [psi1,psi2] = SchroedingerFlow(obj,psi1,psi2)
 //         % solves Schroedinger equation for dt time.
 //         %
@@ -103,17 +110,17 @@ void ISF_SchroedingerFlow()
 // Solves Schroedinger equation for dt time
 {
   cudaMemcpyFromSymbol(para_cpu.psi1, para.psi1, 
-    sizeof(cuDoubleComplex) * torus_cpu.plen)
+    sizeof(cuDoubleComplex) * torus_cpu.plen);
   cudaMemcpyFromSymbol(para_cpu.psi2, para.psi2, 
-    sizeof(cuDoubleComplex) * torus_cpu.plen)
-  cufftPlan plan1 = fftn(para_cpu.psi1);
-  cufftPlan plan2 = fftn(para_cpu.psi2);
+    sizeof(cuDoubleComplex) * torus_cpu.plen);
+  cufftHandle plan1 = fftn(para_cpu.psi1);
+  cufftHandle plan2 = fftn(para_cpu.psi2);
   cudaDeviceSynchronize();
   fftshift<<<1,1>>>(para_cpu.psi1); 
   fftshift<<<1,1>>>(para_cpu.psi2);
   cudaDeviceSynchronize();
 
-  int len = torus.resx * torus.resy * torus.resz;
+  int len = torus_cpu.resx * torus_cpu.resy * torus_cpu.resz;
 
   // Elementwise multiplication, easy to make parallel
   for (int i=0; i<len; i++)
@@ -131,12 +138,12 @@ void ISF_SchroedingerFlow()
   ifftn(para_cpu.psi2, plan2);
   cudaDeviceSynchronize();
   cudaMemcpyToSymbol(para.psi1, para_cpu.psi1, 
-    sizeof(cuDoubleComplex) * torus_cpu.plen)
+    sizeof(cuDoubleComplex) * torus_cpu.plen);
   cudaMemcpyToSymbol(para.psi2, para_cpu.psi2, 
-    sizeof(cuDoubleComplex) * torus_cpu.plen)
+    sizeof(cuDoubleComplex) * torus_cpu.plen);
 }
 
-__global__ void ISF_VelocityOneForm()
+__global__ void ISF_VelocityOneForm_kernel()
 {
   cuDoubleComplex* psi1 = para.psi1;
   cuDoubleComplex* psi2 = para.psi2;
@@ -181,6 +188,11 @@ __global__ void ISF_VelocityOneForm()
   }
 }
 
+void ISF_VelocityOneForm()
+{
+  ISF_VelocityOneForm_kernel<<<1,1>>>();
+}
+
 __global__ void ISF_Neg_Normal_GaugeTransform()
 {
   cuDoubleComplex negi = make_cuDoubleComplex(0.0, -1.0 / torus.plen);
@@ -207,7 +219,7 @@ __global__ void ISF_Neg_Normal_GaugeTransform()
 
 void ISF_PressureProject()
 {
-  ISF_VelocityOneForm<<<1,1>>>();
+  ISF_VelocityOneForm();
   cudaDeviceSynchronize();
   Torus_Div<<<1,1>>>(); 
   cudaDeviceSynchronize();

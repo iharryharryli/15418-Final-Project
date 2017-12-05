@@ -1,5 +1,5 @@
 #include "ISF.cu"
-
+#include "particle.cu"
 
 struct nozzle_t
 {
@@ -125,7 +125,7 @@ void isf_init(Torus* p, ISF* q)
 
 }
 
-__global__ void constrain_velocity_iter()
+__global__ void constrain_velocity_iter(int t)
 // A special procedure we need to do in order for the jet dynamics to work
 {
     for(int i=0; i<torus.resx; i++)
@@ -142,7 +142,7 @@ __global__ void constrain_velocity_iter()
             double amp2 = cuCabs(para.psi2[ind]);
             
             para.psi1[ind] = exp_mycomplex( 
-                     make_cuDoubleComplex(0.0, para.phase[ind]));
+                     make_cuDoubleComplex(0.0, para.phase[ind] - para.omega * t));
             mul_mycomplex(&para.psi1[ind], amp1);
 
             /*if(para.psi1[ind].x < -0.34)
@@ -151,7 +151,7 @@ __global__ void constrain_velocity_iter()
             //printf("%d %d %d %f\n",i,j,k,para.psi1[ind].x);
 
             para.psi2[ind] = exp_mycomplex( 
-                     make_cuDoubleComplex(0.0, para.phase[ind]));
+                     make_cuDoubleComplex(0.0, para.phase[ind] - para.omega * t));
             mul_mycomplex(&para.psi2[ind], amp2);
 
           }
@@ -177,20 +177,11 @@ __global__ void print_psi()
 }
 
 
-void constrain_velocity()
+void constrain_velocity(double t)
 {
-  for(int i=0; i<10; i++)
-  {
-    constrain_velocity_iter<<<1,1>>>();
+    constrain_velocity_iter<<<1,1>>>(t);
     cudaDeviceSynchronize();
     ISF_PressureProject();
-
-    printf("iteration success \n");
-  }
-
-  // print_psi<<<1,1>>>();
-  // cudaDeviceSynchronize(); 
-
 }
 
 
@@ -202,7 +193,7 @@ void jet_setup()
   isf_init(&torus_cpu, &isf_cpu);
   para_init(&torus_cpu, &isf_cpu, &para_cpu, &nozzle_cpu);
 
-  ISF_BuildSchroedinger<<<1,1>>>();
+  ISF_BuildSchroedinger();
 
   // Jet-specific setup
 
@@ -210,19 +201,33 @@ void jet_setup()
 
   cudaDeviceSynchronize();
 
-  constrain_velocity();
+  for(int i=0; i<10; i++)
+  {
+    constrain_velocity(0.0);
+    printf("iteration success \n");
+  }
 
   // Main algorithm
   int itermax = 24;
   for (int i=0; i<itermax; i++)
   {
     // Simulate Incompressible Schroedinger Flow
-    // ISF_SchroedingerFlow(para_cpu.psi1, para_cpu.psi2);
-    // ISF_Normalize(para_cpu.psi1, para_cpu.psi2);
-    // ISF_PressureProject(para_cpu.psi1, para_cpu.psi2);
+    ISF_SchroedingerFlow();
+    ISF_Normalize();
+    ISF_PressureProject();
+
+    constrain_velocity((i+1) * isf_cpu.dt);
+
+    // Particle birth
+    // rt = rand(n_particles,1)*2*pi;
+    // newx = nozzle_cen(1)*ones(size(rt));
+    // newy = nozzle_cen(2) + 0.9*nozzle_rad*cos(rt);
+    // newz = nozzle_cen(3) + 0.9*nozzle_rad*sin(rt);
+    // particle.x = [particle.x;newx];
+    // particle.y = [particle.y;newy];
+    // particle.z = [particle.z;newz];
 
     // Do particle advection
-
 
   }
 }

@@ -150,44 +150,6 @@ __global__ void PoissonSolve_main()
         
 }
 
-void Torus_PoissonSolve()
-// TODO: This is a crazy amount of passing data back and forth...
-{
-  Torus_div2buf<<<1,1>>>();
-  cudaDeviceSynchronize(); 
- 
-
-  //Torus_printfft<<<1,1>>>(); cudaDeviceSynchronize(); 
-
-  // fft
-  cudaMemcpyFromSymbol(torus_cpu.fftbuf, torus.fftbuf, 
-    sizeof(cuDoubleComplex) * torus_cpu.plen)
-
-  cufftPlan plan = fftn(torus_cpu.fftbuf);
-
-  cudaMemcpyToSymbol(torus.fftbuf, torus_cpu.fftbuf, 
-    sizeof(cuDoubleComplex) * torus_cpu.plen)
-
-  // Do work in the fourier space
-  PoissonSolve_main<<<1,1>>>();
-  cudaDeviceSynchronize();   
-
-  // ifft
-  cudaMemcpyFromSymbol(torus_cpu.fftbuf, torus.fftbuf, 
-    sizeof(cuDoubleComplex) * torus_cpu.plen)
-
-  ifftn(torus_cpu.fftbuf, plan);
-  
-  cudaMemcpyToSymbol(torus.fftbuf, torus_cpu.fftbuf, 
-    sizeof(cuDoubleComplex) * torus_cpu.plen)
-
-  //Torus_printfft<<<1,1>>>();
-  //Torus_printdouble<<<1,1>>>(f);
-
-
-
-}
-
 //*********** not tested! ***********
 __global__ void fftshift(cufftDoubleComplex *data)
 // The thing is: fftshift for even and odd dimensional arrays 
@@ -266,6 +228,41 @@ void ifftn(cufftDoubleComplex *data, cufftHandle plan)
   cufftExecZ2Z(plan, data, data, CUFFT_INVERSE); 
   cudaDeviceSynchronize();
   cufftDestroy(plan);
+}
+
+void Torus_PoissonSolve()
+// TODO: This is a crazy amount of passing data back and forth...
+{
+  Torus_div2buf<<<1,1>>>();
+  cudaDeviceSynchronize(); 
+ 
+
+  //Torus_printfft<<<1,1>>>(); cudaDeviceSynchronize(); 
+
+  // fft
+  cudaMemcpyFromSymbol(torus_cpu.fftbuf, torus.fftbuf, 
+    sizeof(cuDoubleComplex) * torus_cpu.plen);
+
+  cufftHandle plan = fftn(torus_cpu.fftbuf);
+
+  cudaMemcpyToSymbol(torus.fftbuf, torus_cpu.fftbuf, 
+    sizeof(cuDoubleComplex) * torus_cpu.plen);
+
+  // Do work in the fourier space
+  PoissonSolve_main<<<1,1>>>();
+  cudaDeviceSynchronize();   
+
+  // ifft
+  cudaMemcpyFromSymbol(torus_cpu.fftbuf, torus.fftbuf, 
+    sizeof(cuDoubleComplex) * torus_cpu.plen);
+
+  ifftn(torus_cpu.fftbuf, plan);
+  
+  cudaMemcpyToSymbol(torus.fftbuf, torus_cpu.fftbuf, 
+    sizeof(cuDoubleComplex) * torus_cpu.plen);
+
+  //Torus_printfft<<<1,1>>>();
+  //Torus_printdouble<<<1,1>>>(f);
 }
 
 
