@@ -176,12 +176,48 @@ __global__ void print_psi()
     }
 }
 
+__global__ void print_particles()
+{
+  for(int i=0; i<particles.num_particles; i++)
+  {
+    printf("%f %f %f\n", particles.x[i],
+              particles.y[i], particles.z[i]);
+  }
+}
 
 void constrain_velocity(double t)
 {
     constrain_velocity_iter<<<1,1>>>(t);
     cudaDeviceSynchronize();
     ISF_PressureProject();
+}
+
+
+__global__ void 
+particle_birth_kernel()
+{
+  for(int i=0; i<particles.num_particles; i++)
+  {
+    double rt = ((double)i) / particles.num_particles;
+    rt *= 2 * M_PI;
+
+    particles.x[i] = nozzle.center[0];
+    particles.y[i] = nozzle.center[1] + 0.9 * nozzle.rad * cos(rt);
+    particles.z[i] = nozzle.center[2] + 0.9 * nozzle.rad * sin(rt); 
+  }
+}
+
+void particle_birth(int num)
+{
+  particles_cpu.num_particles = num;
+  cudaMalloc(&(particles_cpu.x), sizeof(double) * num);
+  cudaMalloc(&(particles_cpu.y), sizeof(double) * num);
+  cudaMalloc(&(particles_cpu.z), sizeof(double) * num);
+
+  cudaMemcpyToSymbol(particles, &particles_cpu, sizeof(particles_t)); 
+  
+  particle_birth_kernel<<<1,1>>>();
+  cudaDeviceSynchronize();
 }
 
 
@@ -210,13 +246,14 @@ void jet_setup()
   //print_psi<<<1,1>>>();
   //cudaDeviceSynchronize(); 
 
+  // generate particles
+  particle_birth(50);
+
   // Main algorithm
-  int itermax = 24;
-  for (int i=0; i<itermax; i++)
+  for (int i=0; i<5; i++)
   {
     // Simulate Incompressible Schroedinger Flow
     ISF_SchroedingerFlow();
-    printf("ISF_SchroedingerFlow done\n");
     ISF_Normalize();
     ISF_PressureProject();
 
@@ -233,7 +270,14 @@ void jet_setup()
 
     // Do particle advection
 
+    ISF_VelocityOneForm(isf_cpu.hbar);
+    Torus_StaggeredSharp();
+    StaggeredAdvect();
+
+    printf("Iteration %d done!\n", i);
+
   }
 
-  print_psi<<<1,1>>>(); cudaDeviceSynchronize();  
+  //print_psi<<<1,1>>>(); cudaDeviceSynchronize();  
+  print_particles<<<1,1>>>(); cudaDeviceSynchronize();
 }

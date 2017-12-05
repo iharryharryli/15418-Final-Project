@@ -256,4 +256,22 @@ void Torus_PoissonSolve()
   //Torus_printdouble<<<1,1>>>(f);
 }
 
+__global__ void StaggeredSharp_kernel()
+{
+  for(int i=0; i<torus.plen; i++)
+  {
+    torus.vx[i] /= torus.dx;
+    torus.vy[i] /= torus.dy;
+    torus.vz[i] /= torus.dz;
+
+    //printf("%f\n", torus.vx[i]);
+  }
+}
+
+void Torus_StaggeredSharp()
+{
+  StaggeredSharp_kernel<<<1,1>>>();
+  cudaDeviceSynchronize();
+}
+
 

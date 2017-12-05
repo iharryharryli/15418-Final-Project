@@ -19,11 +19,12 @@ __device__ void StaggeredVelocity(double px, double py, double pz,
 // evaluates velocity at (px,py,pz) in the grid torus with staggered
 // velocity vector field vx,vy,vz
 {
-    // px = mod(px,torus.sizex);
-    // py = mod(py,torus.sizey);
-    // pz = mod(pz,torus.sizez);
+    px = fmod(px, (double)torus.sizex);
+    py = fmod(py, (double)torus.sizey);
+    pz = fmod(pz, (double)torus.sizez);
+
     
-    if (px < 0 || px > torus.sizex 
+    /*if (px < 0 || px > torus.sizex 
      || py < 0 || py > torus.sizey
      || pz < 0 || pz > torus.sizez)
     {
@@ -31,7 +32,7 @@ __device__ void StaggeredVelocity(double px, double py, double pz,
         *uy = 0;
         *uz = 0;
         return;
-    }
+    }*/
 
     // ix = floor(px/torus.dx) + 1;
     // iy = floor(py/torus.dy) + 1;
@@ -89,7 +90,7 @@ __device__ void StaggeredVelocity(double px, double py, double pz,
               + wy * ((1 - wx) * torus.vz[indyp] + wx * torus.vz[indxpyp]);
 }
 
-__global__ void StaggeredAdvect()
+__global__ void StaggeredAdvect_kernel()
 // advect particle positions using RK4 in a grid torus with
 // staggered velocity vx,vy,vz, for dt period of time
 {
@@ -105,6 +106,7 @@ __global__ void StaggeredAdvect()
     {
         // Fourth-order Runge-Kutta method
         StaggeredVelocity(x[i], y[i], z[i], &k1x, &k1y, &k1z);
+        //x[i] = k1x; y[i] = k1y; z[i] = k1z; continue;
         StaggeredVelocity(x[i]+dt*k1x/2, y[i]+dt*k1y/2, z[i]+dt*k1z/2, 
             &k2x, &k2y, &k2z);
         StaggeredVelocity(x[i]+dt*k2x/2, y[i]+dt*k2y/2, z[i]+dt*k2z/2,
@@ -115,4 +117,10 @@ __global__ void StaggeredAdvect()
         y[i] += dt/6*(k1y+2*k2y+2*k3y+k4y);
         z[i] += dt/6*(k1z+2*k2z+2*k3z+k4z);
     }
+}
+
+void StaggeredAdvect()
+{
+  StaggeredAdvect_kernel<<<1,1>>>();
+  cudaDeviceSynchronize();  
 }
