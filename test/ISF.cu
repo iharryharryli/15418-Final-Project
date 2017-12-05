@@ -39,11 +39,12 @@ __global__ void ISF_Normalize_kernel()
     {
       for(int k=0; k<torus.resz; k++)
       {
-        double psi_norm = 
-          sqrt(psi1->x*psi1->x+psi1->y*psi1->y+
-               psi2->x*psi2->x+psi2->y*psi2->y);
-        
         int ind = index3d(i,j,k);
+
+        double psi_norm = 
+          sqrt(psi1[ind].x*psi1[ind].x+psi1[ind].y*psi1[ind].y+
+               psi2[ind].x*psi2[ind].x+psi2[ind].y*psi2[ind].y);
+        
         div_mycomplex(&psi1[ind], psi_norm);
         div_mycomplex(&psi2[ind], psi_norm);
       }
@@ -54,6 +55,8 @@ __global__ void ISF_Normalize_kernel()
 void ISF_Normalize()
 {
   ISF_Normalize_kernel<<<1,1>>>();
+  cudaDeviceSynchronize();
+
 }
 
 __global__ void ISF_BuildSchroedinger_kernel()
@@ -93,6 +96,7 @@ __global__ void ISF_BuildSchroedinger_kernel()
 void ISF_BuildSchroedinger()
 {
   ISF_BuildSchroedinger_kernel<<<1,1>>>();
+  cudaDeviceSynchronize();
 }
 
 // function [psi1,psi2] = SchroedingerFlow(obj,psi1,psi2)
@@ -143,11 +147,10 @@ void ISF_SchroedingerFlow()
     sizeof(cuDoubleComplex) * torus_cpu.plen);
 }
 
-__global__ void ISF_VelocityOneForm_kernel()
+__global__ void ISF_VelocityOneForm_kernel(double hbar)
 {
   cuDoubleComplex* psi1 = para.psi1;
   cuDoubleComplex* psi2 = para.psi2;
-  double hbar = isf.hbar;
   for(int i=0; i<torus.resx; i++)
   {
     for(int j=0; j<torus.resy; j++)
@@ -188,9 +191,10 @@ __global__ void ISF_VelocityOneForm_kernel()
   }
 }
 
-void ISF_VelocityOneForm()
+void ISF_VelocityOneForm(double hbar)
 {
-  ISF_VelocityOneForm_kernel<<<1,1>>>();
+  ISF_VelocityOneForm_kernel<<<1,1>>>(hbar);
+  cudaDeviceSynchronize();
 }
 
 __global__ void ISF_Neg_Normal_GaugeTransform()
@@ -219,7 +223,7 @@ __global__ void ISF_Neg_Normal_GaugeTransform()
 
 void ISF_PressureProject()
 {
-  ISF_VelocityOneForm();
+  ISF_VelocityOneForm(1.0);
   cudaDeviceSynchronize();
   Torus_Div<<<1,1>>>(); 
   cudaDeviceSynchronize();

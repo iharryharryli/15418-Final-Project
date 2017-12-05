@@ -48,7 +48,7 @@ __global__ void Torus_Div ()
   double dz2 = torus.dz * torus.dz;
 
   double* vx = torus.vx;
-  double* vy = torus.vx;
+  double* vy = torus.vy;
   double* vz = torus.vz;
 
   for(int i=0; i<torus.resx; i++)
@@ -57,9 +57,9 @@ __global__ void Torus_Div ()
     {
       for(int k=0; k<torus.resz; k++)
       {
-        int ixm = (i - 1) % torus.resx;
-        int iym = (j - 1) % torus.resy;
-        int izm = (k - 1) % torus.resz;
+        int ixm = (i - 1 + torus.resx) % torus.resx;
+        int iym = (j - 1 + torus.resy) % torus.resy;
+        int izm = (k - 1 + torus.resz) % torus.resz;
 
         int normal_index = index3d(i,j,k);
         
@@ -137,7 +137,7 @@ __global__ void PoissonSolve_main()
         double sz = sin(M_PI*k/torus.resz) / torus.dz;
         double denom = sx * sx + sy * sy + sz * sz;
         double fac = 0.0;
-        if(denom > 1e-16)
+        if(ind > 0)
         {
           fac = -0.25 / denom;
         }
@@ -240,26 +240,17 @@ void Torus_PoissonSolve()
   //Torus_printfft<<<1,1>>>(); cudaDeviceSynchronize(); 
 
   // fft
-  cudaMemcpyFromSymbol(torus_cpu.fftbuf, torus.fftbuf, 
-    sizeof(cuDoubleComplex) * torus_cpu.plen);
 
   cufftHandle plan = fftn(torus_cpu.fftbuf);
-
-  cudaMemcpyToSymbol(torus.fftbuf, torus_cpu.fftbuf, 
-    sizeof(cuDoubleComplex) * torus_cpu.plen);
 
   // Do work in the fourier space
   PoissonSolve_main<<<1,1>>>();
   cudaDeviceSynchronize();   
 
   // ifft
-  cudaMemcpyFromSymbol(torus_cpu.fftbuf, torus.fftbuf, 
-    sizeof(cuDoubleComplex) * torus_cpu.plen);
 
   ifftn(torus_cpu.fftbuf, plan);
   
-  cudaMemcpyToSymbol(torus.fftbuf, torus_cpu.fftbuf, 
-    sizeof(cuDoubleComplex) * torus_cpu.plen);
 
   //Torus_printfft<<<1,1>>>();
   //Torus_printdouble<<<1,1>>>(f);

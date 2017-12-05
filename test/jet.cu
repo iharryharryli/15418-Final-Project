@@ -125,7 +125,7 @@ void isf_init(Torus* p, ISF* q)
 
 }
 
-__global__ void constrain_velocity_iter(int t)
+__global__ void constrain_velocity_iter(double t)
 // A special procedure we need to do in order for the jet dynamics to work
 {
     for(int i=0; i<torus.resx; i++)
@@ -206,6 +206,10 @@ void jet_setup()
     constrain_velocity(0.0);
     printf("iteration success \n");
   }
+
+  print_psi<<<1,1>>>();
+  cudaDeviceSynchronize(); 
+  return;
 
   // Main algorithm
   int itermax = 24;
