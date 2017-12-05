@@ -207,9 +207,8 @@ void jet_setup()
     printf("iteration success \n");
   }
 
-  print_psi<<<1,1>>>();
-  cudaDeviceSynchronize(); 
-  return;
+  //print_psi<<<1,1>>>();
+  //cudaDeviceSynchronize(); 
 
   // Main algorithm
   int itermax = 24;
@@ -217,6 +216,7 @@ void jet_setup()
   {
     // Simulate Incompressible Schroedinger Flow
     ISF_SchroedingerFlow();
+    printf("ISF_SchroedingerFlow done\n");
     ISF_Normalize();
     ISF_PressureProject();
 
@@ -234,4 +234,6 @@ void jet_setup()
     // Do particle advection
 
   }
+
+  print_psi<<<1,1>>>(); cudaDeviceSynchronize();  
 }
