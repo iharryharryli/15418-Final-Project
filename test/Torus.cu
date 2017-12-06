@@ -1,5 +1,6 @@
 #include "depend.h"
 #include "mycomplex.cu"
+#include "parallel.cu"
 struct Torus
 {
   int resx,resy,resz;
