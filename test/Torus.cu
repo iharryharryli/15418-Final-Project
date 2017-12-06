@@ -43,6 +43,8 @@ getCoords(int i, int *x, int *y, int *z)
 
 __global__ void Torus_Div ()
 {
+  int normal_index = check_limit(torus.plen);
+  if(normal_index < 0) return;
 
   double dx2 = torus.dx * torus.dx;
   double dy2 = torus.dy * torus.dy;
@@ -52,17 +54,19 @@ __global__ void Torus_Div ()
   double* vy = torus.vy;
   double* vz = torus.vz;
 
-  for(int i=0; i<torus.resx; i++)
+  int i,j,k;
+  getCoords(normal_index, &i, &j, &k);
+
+  /*for(int i=0; i<torus.resx; i++)
   {
     for(int j=0; j<torus.resy; j++)
     {
       for(int k=0; k<torus.resz; k++)
-      {
+      {*/
         int ixm = (i - 1 + torus.resx) % torus.resx;
         int iym = (j - 1 + torus.resy) % torus.resy;
         int izm = (k - 1 + torus.resz) % torus.resz;
 
-        int normal_index = index3d(i,j,k);
         
         torus.div[normal_index] = 
           (vx[normal_index] - vx[index3d(ixm,j,k)])/dx2;
@@ -71,9 +75,9 @@ __global__ void Torus_Div ()
         torus.div[normal_index] +=
           (vz[normal_index] - vz[index3d(i,j,izm)])/dz2;
 
-      }
+      /*}
     }
-  }
+  }*/
 
 }
 
@@ -111,29 +115,18 @@ __global__ void Torus_printdouble(double* f)
 
 __global__ void Torus_div2buf()
 {
-  for(int i=0; i<torus.resx; i++)
-  {
-    for(int j=0; j<torus.resy; j++)
-    {
-      for(int k=0; k<torus.resz; k++)
-      {
-        int ind = index3d(i,j,k);
-        torus.fftbuf[ind] = make_cuDoubleComplex(torus.div[ind],0.0);
-       }
-    }
-  }
+  int ind = check_limit(torus.plen);
+  if(ind<0)return;
+          torus.fftbuf[ind] = make_cuDoubleComplex(torus.div[ind],0.0);
 }
 
 __global__ void PoissonSolve_main()
 {
-  for(int i=0; i<torus.resx; i++)
-  {
-    for(int j=0; j<torus.resy; j++)
-    {
-      for(int k=0; k<torus.resz; k++)
-      {
-        int ind = index3d(i,j,k);   
-        double sx = sin(M_PI*i/torus.resx) / torus.dx;
+  int ind = check_limit(torus.plen);
+  if(ind<0)return;
+  int i,j,k;
+  getCoords(ind,&i,&j,&k);
+          double sx = sin(M_PI*i/torus.resx) / torus.dx;
         double sy = sin(M_PI*j/torus.resy) / torus.dy;  
         double sz = sin(M_PI*k/torus.resz) / torus.dz;
         double denom = sx * sx + sy * sy + sz * sz;
@@ -142,12 +135,8 @@ __global__ void PoissonSolve_main()
         {
           fac = -0.25 / denom;
         }
-        //mul_mycomplex(&torus.fftbuf[ind], fac);
-        torus.fftbuf[ind].x *= fac;
-        torus.fftbuf[ind].y *= fac;
-      }
-    }
-  }    
+        mul_mycomplex(&torus.fftbuf[ind], fac);
+          
         
 }
 
@@ -161,17 +150,20 @@ __global__ void fftshift(cufftDoubleComplex *data)
   int xs = torus.resx / 2;
   int ys = torus.resy / 2;
   int zs = torus.resz / 2;
-  int len = torus.resx * torus.resy * torus.resz;
+  int len = torus.plen;
   int x, y, z = 0;
   int j;
 
-  if (len % 2 == 1){
+  /*if (len % 2 == 1){
     printf("Error: fftshift only supports even sized grid!\n");
     return;
-  }
+  }*/
 
-  for (int i=0; i<len/2; i++)
-  {
+  int i = check_limit(len / 2);
+  if(i<0) return;
+
+  //for (int i=0; i<len/2; i++)
+  //{
     cufftDoubleComplex temp = data[i];
     getCoords(i, &x, &y, &z);
     x = (x + xs) % torus.resx;
@@ -180,7 +172,7 @@ __global__ void fftshift(cufftDoubleComplex *data)
     j = index3d(x, y, z);
     data[i] = data[j];
     data[j] = temp;
-  }
+  //}
 }
 
 //*********** not tested! ***********
@@ -234,7 +226,8 @@ void ifftn(cufftDoubleComplex *data, cufftHandle plan)
 void Torus_PoissonSolve()
 // TODO: This is a crazy amount of passing data back and forth...
 {
-  Torus_div2buf<<<1,1>>>();
+  int nb = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK);
+  Torus_div2buf<<<nb,THREADS_PER_BLOCK>>>();
   cudaDeviceSynchronize(); 
  
 
@@ -245,7 +238,7 @@ void Torus_PoissonSolve()
   cufftHandle plan = fftn(torus_cpu.fftbuf);
 
   // Do work in the fourier space
-  PoissonSolve_main<<<1,1>>>();
+  PoissonSolve_main<<<nb,THREADS_PER_BLOCK>>>();
   cudaDeviceSynchronize();   
 
   // ifft
@@ -259,19 +252,18 @@ void Torus_PoissonSolve()
 
 __global__ void StaggeredSharp_kernel()
 {
-  for(int i=0; i<torus.plen; i++)
-  {
-    torus.vx[i] /= torus.dx;
+  int i = check_limit(torus.plen);
+  if(i<0)return;
+      torus.vx[i] /= torus.dx;
     torus.vy[i] /= torus.dy;
     torus.vz[i] /= torus.dz;
 
-    //printf("%f\n", torus.vx[i]);
-  }
 }
 
 void Torus_StaggeredSharp()
 {
-  StaggeredSharp_kernel<<<1,1>>>();
+  int nb = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK);
+  StaggeredSharp_kernel<<<nb,THREADS_PER_BLOCK>>>();
   cudaDeviceSynchronize();
 }
 

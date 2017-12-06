@@ -5,7 +5,7 @@ int calc_numblock(int limit, int threadsPerBlock)
   return (limit + threadsPerBlock - 1) / threadsPerBlock;
 }
 
-__device__ int check_limit(int limit)
+__device__ __inline__ int check_limit(int limit)
 {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   

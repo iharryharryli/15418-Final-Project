@@ -128,13 +128,15 @@ void isf_init(Torus* p, ISF* q)
 __global__ void constrain_velocity_iter(double t)
 // A special procedure we need to do in order for the jet dynamics to work
 {
-    for(int i=0; i<torus.resx; i++)
+    int ind = check_limit(torus.plen);
+    if(ind < 0) return;
+    /*for(int i=0; i<torus.resx; i++)
     {
       for(int j=0; j<torus.resy; j++)
       {
         for(int k=0; k<torus.resz; k++)
         {
-          int ind = index3d(i,j,k);
+          int ind = index3d(i,j,k);*/
           
           if(para.isJet[ind] == 1)
           {
@@ -145,20 +147,15 @@ __global__ void constrain_velocity_iter(double t)
                      make_cuDoubleComplex(0.0, para.phase[ind] - para.omega * t));
             mul_mycomplex(&para.psi1[ind], amp1);
 
-            /*if(para.psi1[ind].x < -0.34)
-              printf("%d %d %d %f\n",i,j,k,para.psi1[ind].x);*/
-
-            //printf("%d %d %d %f\n",i,j,k,para.psi1[ind].x);
-
             para.psi2[ind] = exp_mycomplex( 
                      make_cuDoubleComplex(0.0, para.phase[ind] - para.omega * t));
             mul_mycomplex(&para.psi2[ind], amp2);
 
           }
-
+/*
         }
       }
-    }
+    }*/
 }
 
 __global__ void print_psi()
@@ -187,7 +184,7 @@ __global__ void print_particles()
 
 void constrain_velocity(double t)
 {
-    constrain_velocity_iter<<<1,1>>>(t);
+    constrain_velocity_iter<<<torus_cpu.plen,THREADS_PER_BLOCK>>>(t);
     cudaDeviceSynchronize();
     ISF_PressureProject();
 }
