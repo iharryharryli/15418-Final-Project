@@ -1,11 +1,11 @@
 
 EXECUTABLE := run
 
-CU_FILES   := 
+CU_FILES   := cudaRenderer.cu
 
 CU_DEPS    :=
 
-CC_FILES   := main.cpp 
+CC_FILES   := main.cpp
 
 LOGS	   := logs
 
@@ -36,7 +36,8 @@ LDFRAMEWORKS := $(addprefix -framework , $(FRAMEWORKS))
 
 NVCC=nvcc
 
-OBJS=$(OBJDIR)/main.o $(OBJDIR)/jet.o $(OBJDIR)/fft.o 
+OBJS=$(OBJDIR)/main.o $(OBJDIR)/jet.o $(OBJDIR)/fft.o $(OBJDIR)/cudaRenderer.o \
+	 $(OBJDIR)/ppm.o $(OBJDIR)/noise.o $(OBJDIR)/sceneLoader.o
 
 
 .PHONY: dirs clean
