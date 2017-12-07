@@ -65,21 +65,19 @@ void ISF_Normalize()
 __global__ void ISF_BuildSchroedinger_kernel()
 // Initializes the complex components of the field
 {
+  int ind = check_limit(torus.plen);
+  if(ind<0)return;
   double nx = torus.resx, ny = torus.resy, nz = torus.resz;
   double fac = -4.0 * M_PI * M_PI * isf.hbar;
+
+  int i,j,k;
+  getCoords(ind,&i,&j,&k);
   
-  for(int i=0; i<torus.resx; i++)
-  {
-    for(int j=0; j<torus.resy; j++)
-    {
-      for(int k=0; k<torus.resz; k++)
-      {
         double kx = (i - nx / 2) / torus.sizex;
         double ky = (j - ny / 2) / torus.sizey;
         double kz = (k - nz / 2) / torus.sizez;
         double lambda = fac * (kx * kx + ky * ky + kz * kz);
         
-        int ind = index3d(i,j,k);
         
         cuDoubleComplex inp;
         inp.x = 0;
@@ -87,18 +85,13 @@ __global__ void ISF_BuildSchroedinger_kernel()
         
         isf.mask[index3d(i,j,k)] = exp_mycomplex(inp);
 
-        //printf("%f %f \n", isf.mask[index3d(i,j,k)].x,isf.mask[index3d(i,j,k)].y);
-        
-      }
-    }
-  }
-
-  printf("Done ISF_BuildSchroedinger \n"); 
+       
 }
 
 void ISF_BuildSchroedinger()
 {
-  ISF_BuildSchroedinger_kernel<<<1,1>>>();
+  int nb = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK);
+  ISF_BuildSchroedinger_kernel<<<nb,THREADS_PER_BLOCK>>>();
   cudaDeviceSynchronize();
 }
 

@@ -11,15 +11,14 @@ struct nozzle_t
 __constant__ nozzle_t nozzle;
 nozzle_t nozzle_cpu;
 
-__global__ void set_nozzle_and_phase_and_psi()
+__global__ void set_nozzle_and_phase_and_psi_kernel()
 {
-  for(int i=0; i<torus.resx; i++)
-  {
-    for(int j=0; j<torus.resy; j++)
-    {
-      for(int k=0; k<torus.resz; k++)
-      {
-        int ind = index3d(i,j,k);
+  int ind = check_limit(torus.plen);
+  if(ind<0)return;
+
+  int i,j,k;
+  getCoords(ind, &i, &j, &k);
+  
         double px = i * torus.dx;
         double py = j * torus.dy;
         double pz = k * torus.dz;
@@ -45,10 +44,14 @@ __global__ void set_nozzle_and_phase_and_psi()
         para.psi1[ind] = make_cuDoubleComplex(1.0, 0.0);
         para.psi2[ind] = make_cuDoubleComplex(0.01, 0.0);
 
-      }
-    }
-  }
 
+}
+
+void set_nozzle_and_phase_and_psi()
+{
+  int nb = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK);
+  set_nozzle_and_phase_and_psi_kernel<<<nb,THREADS_PER_BLOCK>>>();
+  cudaDeviceSynchronize();
 }
 
 void para_init(Torus* p, ISF* q, para_t* t, nozzle_t* n)
@@ -101,6 +104,7 @@ void isf_init(Torus* p, ISF* q)
   p -> sizey = 2;
   p -> sizez = 2;
   p -> plen = (p -> resx) * (p -> resy) * (p -> resz);
+  p -> yzlen = (p -> resy) * (p -> resz);
   Torus_calc_ds(p);
   cudaMalloc(&(p -> div), sizeof(double) * (p -> plen));
   cudaMalloc(&(p -> fftbuf), sizeof(cuDoubleComplex) * (p -> plen));
@@ -229,8 +233,9 @@ void jet_setup()
   ISF_BuildSchroedinger();
 
   // Jet-specific setup
-
-  set_nozzle_and_phase_and_psi<<<1,1>>>();
+  
+ 
+  set_nozzle_and_phase_and_psi();
 
   cudaDeviceSynchronize();
 

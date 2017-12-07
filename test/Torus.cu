@@ -12,6 +12,7 @@ struct Torus
   double* vz;
 
   int plen;
+  int yzlen;
 
   double* div;
   cuDoubleComplex* fftbuf;
@@ -30,15 +31,16 @@ Torus torus_cpu;
 __device__  __inline__  int 
 index3d(int i, int j, int k)
 {
-  return (k + j*torus.resz + i*torus.resz*torus.resy);
+  return (k + j*torus.resz + i*torus.yzlen);
 }
 
 __device__  __inline__  void 
 getCoords(int i, int *x, int *y, int *z)
 {
-  *x = i / (torus.resz * torus.resy);
-  *y = (i % (torus.resz * torus.resy)) / torus.resz;
-  *z = (i % (torus.resz * torus.resy)) % torus.resz;
+  *x = i / (torus.yzlen);
+  int t = i % torus.yzlen;
+  *y = t / torus.resz;
+  *z = t % torus.resz;
 }
 
 __global__ void Torus_Div ()
