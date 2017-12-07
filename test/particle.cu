@@ -124,7 +124,9 @@ __global__ void StaggeredAdvect_kernel()
 
 void StaggeredAdvect()
 {
+  tpstart(10);
   int nb = calc_numblock(particles_cpu.num_particles, THREADS_PER_BLOCK);
   StaggeredAdvect_kernel<<<nb,THREADS_PER_BLOCK>>>();
-  cudaDeviceSynchronize();  
+  cudaDeviceSynchronize(); 
+  tpend(10); 
 }

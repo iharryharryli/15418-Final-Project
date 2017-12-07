@@ -108,6 +108,8 @@ void isf_init(Torus* p, ISF* q)
   Torus_calc_ds(p);
   cudaMalloc(&(p -> div), sizeof(double) * (p -> plen));
   cudaMalloc(&(p -> fftbuf), sizeof(cuDoubleComplex) * (p -> plen));
+  cufftPlan3d(&(p -> fftplan), 
+      torus_cpu.resx, torus_cpu.resy, torus_cpu.resz, CUFFT_Z2Z);
 
 
   q -> hbar = 0.1;
@@ -188,8 +190,11 @@ __global__ void print_particles()
 
 void constrain_velocity(double t)
 {
-    constrain_velocity_iter<<<torus_cpu.plen,THREADS_PER_BLOCK>>>(t);
+    tpstart(5);
+    int nb = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK); 
+    constrain_velocity_iter<<<nb,THREADS_PER_BLOCK>>>(t);
     cudaDeviceSynchronize();
+    tpend(5);
     ISF_PressureProject();
 }
 
@@ -224,6 +229,8 @@ void particle_birth(int num)
 
 void jet_setup()
 {
+  // init timer
+  tpinit();
 
   // Basic setup
 
@@ -242,17 +249,18 @@ void jet_setup()
   for(int i=0; i<10; i++)
   {
     constrain_velocity(0.0);
-    printf("iteration success \n");
   }
+
+  printf("Initialization Done! \n");
 
   //print_psi<<<1,1>>>();
   //cudaDeviceSynchronize(); 
 
   // generate particles
-  particle_birth(50);
+  particle_birth(1000000);
 
   // Main algorithm
-  for (int i=0; i<5; i++)
+  for (int i=0; i<50; i++)
   {
     // Simulate Incompressible Schroedinger Flow
     ISF_SchroedingerFlow();
@@ -260,15 +268,6 @@ void jet_setup()
     ISF_PressureProject();
 
     constrain_velocity((i+1) * isf_cpu.dt);
-
-    // Particle birth
-    // rt = rand(n_particles,1)*2*pi;
-    // newx = nozzle_cen(1)*ones(size(rt));
-    // newy = nozzle_cen(2) + 0.9*nozzle_rad*cos(rt);
-    // newz = nozzle_cen(3) + 0.9*nozzle_rad*sin(rt);
-    // particle.x = [particle.x;newx];
-    // particle.y = [particle.y;newy];
-    // particle.z = [particle.z;newz];
 
     // Do particle advection
 
@@ -280,6 +279,8 @@ void jet_setup()
 
   }
 
+  tpsummary();
+
   //print_psi<<<1,1>>>(); cudaDeviceSynchronize();  
-  print_particles<<<1,1>>>(); cudaDeviceSynchronize();
+  //print_particles<<<1,1>>>(); cudaDeviceSynchronize();
 }

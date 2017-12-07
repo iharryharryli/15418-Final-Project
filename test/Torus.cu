@@ -16,6 +16,8 @@ struct Torus
 
   double* div;
   cuDoubleComplex* fftbuf;
+  cufftHandle fftplan;
+
 };
 
 void Torus_calc_ds(Torus* t)
@@ -207,45 +209,50 @@ __global__ void ifftshift(cufftDoubleComplex *data)
   }
 }
 
-cufftHandle fftn(cufftDoubleComplex *data)
+void fftn(cufftDoubleComplex *data)
 // Returns the cufft plan created
 {
-  cufftHandle plan;
-  cufftPlan3d(&plan, torus_cpu.resx, torus_cpu.resy, torus_cpu.resz, CUFFT_Z2Z);
-  cufftExecZ2Z(plan, data, data, CUFFT_FORWARD);
+  tpstart(6);
+  cufftExecZ2Z(torus_cpu.fftplan, data, data, CUFFT_FORWARD);
   cudaDeviceSynchronize();
-  return plan;
+  tpend(6);
 }
 
-void ifftn(cufftDoubleComplex *data, cufftHandle plan)
+void ifftn(cufftDoubleComplex *data)
 // Destorys the cufft plan after finshing
 {
-  cufftExecZ2Z(plan, data, data, CUFFT_INVERSE); 
+  tpstart(7);
+  cufftExecZ2Z(torus_cpu.fftplan, data, data, CUFFT_INVERSE); 
   cudaDeviceSynchronize();
-  cufftDestroy(plan);
+  tpend(7);
 }
 
 void Torus_PoissonSolve()
-// TODO: This is a crazy amount of passing data back and forth...
 {
   int nb = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK);
+
+  tpstart(8);
   Torus_div2buf<<<nb,THREADS_PER_BLOCK>>>();
   cudaDeviceSynchronize(); 
+  tpend(8);
  
 
   //Torus_printfft<<<1,1>>>(); cudaDeviceSynchronize(); 
 
   // fft
 
-  cufftHandle plan = fftn(torus_cpu.fftbuf);
+  fftn(torus_cpu.fftbuf);
 
   // Do work in the fourier space
+
+  tpstart(1);
   PoissonSolve_main<<<nb,THREADS_PER_BLOCK>>>();
   cudaDeviceSynchronize();   
+  tpend(1);
 
   // ifft
 
-  ifftn(torus_cpu.fftbuf, plan);
+  ifftn(torus_cpu.fftbuf);
   
 
   //Torus_printfft<<<1,1>>>();
@@ -264,9 +271,11 @@ __global__ void StaggeredSharp_kernel()
 
 void Torus_StaggeredSharp()
 {
+  tpstart(9);
   int nb = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK);
   StaggeredSharp_kernel<<<nb,THREADS_PER_BLOCK>>>();
   cudaDeviceSynchronize();
+  tpend(9);
 }
 
 

@@ -56,9 +56,11 @@ __global__ void ISF_Normalize_kernel()
 
 void ISF_Normalize()
 {
+  tpstart(4);
   int nb = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK);
   ISF_Normalize_kernel<<<nb,THREADS_PER_BLOCK>>>();
   cudaDeviceSynchronize();
+  tpend(4);
 
 }
 
@@ -119,8 +121,8 @@ __global__ void ISF_ElementProduct(cuDoubleComplex* a,
 void ISF_SchroedingerFlow()
 // Solves Schroedinger equation for dt time
 {
-  cufftHandle plan1 = fftn(para_cpu.psi1);
-  cufftHandle plan2 = fftn(para_cpu.psi2);
+  fftn(para_cpu.psi1);
+  fftn(para_cpu.psi2);
   cudaDeviceSynchronize();
 
   int nb = calc_numblock(torus_cpu.plen/2, THREADS_PER_BLOCK);
@@ -144,8 +146,8 @@ void ISF_SchroedingerFlow()
   fftshift<<<nb,THREADS_PER_BLOCK>>>(para_cpu.psi1);
   fftshift<<<nb,THREADS_PER_BLOCK>>>(para_cpu.psi2);
   cudaDeviceSynchronize();
-  ifftn(para_cpu.psi1, plan1);
-  ifftn(para_cpu.psi2, plan2);
+  ifftn(para_cpu.psi1);
+  ifftn(para_cpu.psi2);
   cudaDeviceSynchronize();
 }
 
@@ -230,17 +232,24 @@ __global__ void ISF_Neg_Normal_GaugeTransform()
 
 void ISF_PressureProject()
 {
+
+  tpstart(3);
   ISF_VelocityOneForm(1.0);
-  cudaDeviceSynchronize();
+  tpend(3);
   
+  tpstart(0);
   int nb = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK);
   Torus_Div<<<nb,THREADS_PER_BLOCK>>>(); 
   cudaDeviceSynchronize();
+  tpend(0);
 
   Torus_PoissonSolve();
 
+  tpstart(2);
   ISF_Neg_Normal_GaugeTransform<<<nb,THREADS_PER_BLOCK>>>();
   cudaDeviceSynchronize(); 
+  tpend(2);
+  
 
 }
 
