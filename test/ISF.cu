@@ -112,10 +112,16 @@ void ISF_BuildSchroedinger()
 __global__ void ISF_ElementProduct(cuDoubleComplex* a, 
                                 cuDoubleComplex* b)
 {
-  int i = check_limit(torus.plen);
-  if(i<0) return;
+  int step = blockDim.x * gridDim.x;
+  for(int i = blockIdx.x * blockDim.x + threadIdx.x; 
+      i < torus.plen;
+      i += step)
+  {
+ // int i = check_limit(torus.plen);
+ // if(i<0) return;
    
   a[i] = cuCmul(a[i], b[i]);
+  }
 }
         
 void ISF_SchroedingerFlow()
@@ -135,10 +141,10 @@ void ISF_SchroedingerFlow()
 
   tpstart(12);
   // Elementwise multiplication, easy to make parallel
-  int nb2 = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK);
-  ISF_ElementProduct<<<nb2,THREADS_PER_BLOCK>>>
+  //int nb2 = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK);
+  ISF_ElementProduct<<<64*NUM_SM,THREADS_PER_BLOCK>>>
     (para_cpu.psi1, isf_cpu.mask);
-  ISF_ElementProduct<<<nb2,THREADS_PER_BLOCK>>>
+  ISF_ElementProduct<<<64*NUM_SM,THREADS_PER_BLOCK>>>
     (para_cpu.psi2, isf_cpu.mask);
   cudaDeviceSynchronize();
   tpend(12);
