@@ -240,7 +240,7 @@ void Torus_PoissonSolve()
   //Torus_printfft<<<1,1>>>(); cudaDeviceSynchronize(); 
 
   // fft
-
+  
   fftn(torus_cpu.fftbuf);
 
   // Do work in the fourier space

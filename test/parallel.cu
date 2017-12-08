@@ -1,4 +1,4 @@
-#define THREADS_PER_BLOCK 256
+#define THREADS_PER_BLOCK 1024
 #define PROFILE_N 100
 
 int calc_numblock(int limit, int threadsPerBlock)
@@ -58,29 +58,31 @@ const char* profileNames[]=
   "ISF_VelocityOneForm",
   "ISF_Normalize",
   "constrain_velocity_iter", //5
-  "fft",
-  "ifft",
+  "fft", //6
+  "ifft", //7
   "div2buf",
   "Torus_StaggeredSharp", //9
   "StaggeredAdvect", //10
+  "fftshift", //11
+  "ISF_ElementProduct", //12
 
 };
 
 void tpsummary()
 {
-  printf("\n\n***** summary *****\n\n");
   double total = 0.0;
   for(int i=0; i<PROFILE_N; i++)
   {
     total += time_profile.total[i];
   }
+  printf("\n\n***** summary *****\n total time: %f \n\n", total);
 
   for(int i=0; i<PROFILE_N; i++)
   {
     if(time_profile.count[i] == 0) continue;
     printf("Profile for %s\n",profileNames[i]);
     printf("Total Percentage %f\n", 100 * time_profile.total[i] / total);
-    printf("Avg Time %f\n\n", 
+    printf("Avg Time %.10f\n\n", 
         time_profile.total[i] / time_profile.count[i]);
   }
 }

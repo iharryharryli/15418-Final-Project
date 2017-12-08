@@ -257,10 +257,10 @@ void jet_setup()
   //cudaDeviceSynchronize(); 
 
   // generate particles
-  particle_birth(1000000);
+  particle_birth(100000);
 
   // Main algorithm
-  for (int i=0; i<50; i++)
+  for (int i=0; i<500; i++)
   {
     // Simulate Incompressible Schroedinger Flow
     ISF_SchroedingerFlow();
@@ -275,7 +275,7 @@ void jet_setup()
     Torus_StaggeredSharp();
     StaggeredAdvect();
 
-    printf("Iteration %d done!\n", i);
+    //printf("Iteration %d done!\n", i);
 
   }
 

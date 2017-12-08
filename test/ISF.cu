@@ -125,12 +125,15 @@ void ISF_SchroedingerFlow()
   fftn(para_cpu.psi2);
   cudaDeviceSynchronize();
 
+  tpstart(11);
   int nb = calc_numblock(torus_cpu.plen/2, THREADS_PER_BLOCK);
   fftshift<<<nb,THREADS_PER_BLOCK>>>(para_cpu.psi1); 
   fftshift<<<nb,THREADS_PER_BLOCK>>>(para_cpu.psi2);
   cudaDeviceSynchronize();
+  tpend(11);
 
 
+  tpstart(12);
   // Elementwise multiplication, easy to make parallel
   int nb2 = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK);
   ISF_ElementProduct<<<nb2,THREADS_PER_BLOCK>>>
@@ -138,14 +141,17 @@ void ISF_SchroedingerFlow()
   ISF_ElementProduct<<<nb2,THREADS_PER_BLOCK>>>
     (para_cpu.psi2, isf_cpu.mask);
   cudaDeviceSynchronize();
+  tpend(12);
   
 
-
+  tpstart(11);
   // Matlab code used fftshift here, which I believe is wrong
   // Doesn't matter here when we use even sized grid though
   fftshift<<<nb,THREADS_PER_BLOCK>>>(para_cpu.psi1);
   fftshift<<<nb,THREADS_PER_BLOCK>>>(para_cpu.psi2);
   cudaDeviceSynchronize();
+  tpend(11);
+
   ifftn(para_cpu.psi1);
   ifftn(para_cpu.psi2);
   cudaDeviceSynchronize();
@@ -198,10 +204,12 @@ __global__ void ISF_VelocityOneForm_kernel(double hbar)
 
 void ISF_VelocityOneForm(double hbar)
 {
+  tpstart(3);
   int nb = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK); 
   ISF_VelocityOneForm_kernel<<<nb,THREADS_PER_BLOCK>>>
     (hbar);
   cudaDeviceSynchronize();
+  tpend(3);
 }
 
 __global__ void ISF_Neg_Normal_GaugeTransform()
@@ -233,9 +241,7 @@ __global__ void ISF_Neg_Normal_GaugeTransform()
 void ISF_PressureProject()
 {
 
-  tpstart(3);
   ISF_VelocityOneForm(1.0);
-  tpend(3);
   
   tpstart(0);
   int nb = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK);
