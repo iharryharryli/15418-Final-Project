@@ -159,6 +159,11 @@ void ISF_SchroedingerFlow()
 
 __global__ void ISF_VelocityOneForm_kernel(double hbar)
 {
+  int step = blockDim.x * gridDim.x;
+  for(int ind = blockIdx.x * blockDim.x + threadIdx.x; 
+      ind < torus.plen;
+      ind += step)
+  {
   int ind = check_limit(torus.plen);
   if(ind<0) return;
   cuDoubleComplex* psi1 = para.psi1;
@@ -200,13 +205,14 @@ __global__ void ISF_VelocityOneForm_kernel(double hbar)
  /*     }
     }
   }*/
+  }
 }
 
 void ISF_VelocityOneForm(double hbar)
 {
   tpstart(3);
-  int nb = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK); 
-  ISF_VelocityOneForm_kernel<<<nb,THREADS_PER_BLOCK>>>
+  //int nb = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK); 
+  ISF_VelocityOneForm_kernel<<<32*NUM_SM,THREADS_PER_BLOCK>>>
     (hbar);
   cudaDeviceSynchronize();
   tpend(3);

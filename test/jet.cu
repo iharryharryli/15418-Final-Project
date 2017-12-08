@@ -232,6 +232,13 @@ void jet_setup()
   // init timer
   tpinit();
 
+  //set up numSMs
+  cudaDeviceGetAttribute(&NUM_SM, 
+     // cudaDevAttrMaxThreadsPerBlock,
+      cudaDevAttrMultiProcessorCount,
+   0);
+
+
   // Basic setup
 
   isf_init(&torus_cpu, &isf_cpu);
