@@ -1,4 +1,4 @@
-#define THREADS_PER_BLOCK 1024
+#define THREADS_PER_BLOCK 256
 #define PROFILE_N 100
 
 int calc_numblock(int limit, int threadsPerBlock)

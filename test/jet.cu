@@ -257,7 +257,7 @@ void jet_setup()
   //cudaDeviceSynchronize(); 
 
   // generate particles
-  particle_birth(50);
+  particle_birth(500000);
 
   // Main algorithm
   for (int i=0; i<5; i++)
@@ -279,8 +279,8 @@ void jet_setup()
 
   }
 
-  //tpsummary();
+  tpsummary();
 
   //print_psi<<<1,1>>>(); cudaDeviceSynchronize();  
-  print_particles<<<1,1>>>(); cudaDeviceSynchronize();
+  //print_particles<<<1,1>>>(); cudaDeviceSynchronize();
 }
