@@ -8,13 +8,15 @@
 using namespace std;
 
 void fft();
+void collect_test();
 
 int main(int argc, char** argv)
 {
 
   cout << "Hello World!!!" << endl;
   
-  jet_setup();
+  collect_test();
+  //jet_setup();
   //
 
   //fft();

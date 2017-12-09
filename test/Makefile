@@ -36,7 +36,7 @@ LDFRAMEWORKS := $(addprefix -framework , $(FRAMEWORKS))
 
 NVCC=nvcc
 
-OBJS=$(OBJDIR)/main.o $(OBJDIR)/jet.o $(OBJDIR)/fft.o 
+OBJS=$(OBJDIR)/main.o $(OBJDIR)/jet.o $(OBJDIR)/fft.o  
 
 
 .PHONY: dirs clean
