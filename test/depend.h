@@ -5,3 +5,5 @@
 
 #include <cuComplex.h>
 #include <cufft.h>
+
+#include "cycleTimer.h"

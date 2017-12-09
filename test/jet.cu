@@ -11,44 +11,47 @@ struct nozzle_t
 __constant__ nozzle_t nozzle;
 nozzle_t nozzle_cpu;
 
-__global__ void set_nozzle_and_phase_and_psi()
+__global__ void set_nozzle_and_phase_and_psi_kernel()
 {
-	for(int i=0; i<torus.resx; i++)
-	{
-		for(int j=0; j<torus.resy; j++)
-		{
-			for(int k=0; k<torus.resz; k++)
-			{
-				int ind = index3d(i,j,k);
-				double px = i * torus.dx;
-				double py = j * torus.dy;
-				double pz = k * torus.dz;
+  int ind = check_limit(torus.plen);
+  if(ind<0)return;
 
-				double dx = px - nozzle.center[0];
-				double dy = py - nozzle.center[1];
-				double dz = pz - nozzle.center[2];
+  int i,j,k;
+  getCoords(ind, &i, &j, &k);
+  
+        double px = i * torus.dx;
+        double py = j * torus.dy;
+        double pz = k * torus.dz;
 
-				if(abs(dx) <= nozzle.len / 2.0
-						&& (dy * dy + dz * dz) <= nozzle.rad * nozzle.rad)
-				{
-					para.isJet[ind] = 1;
-					//printf("%d %d %d \n", i, j ,k);
-				}
-				else
-				{
-					para.isJet[ind] = 0;
-				}
+        double dx = px - nozzle.center[0];
+        double dy = py - nozzle.center[1];
+        double dz = pz - nozzle.center[2];
 
-				para.phase[ind] =
-					para.kvec[0]*px + para.kvec[1]*py + para.kvec[2]*pz;
+        if(abs(dx) <= nozzle.len / 2.0
+            && (dy * dy + dz * dz) <= nozzle.rad * nozzle.rad)
+        {
+          para.isJet[ind] = 1;
+          //printf("%d %d %d \n", i, j ,k);
+        }
+        else
+        {
+          para.isJet[ind] = 0;
+        }
 
-				para.psi1[ind] = make_cuDoubleComplex(1.0, 0.0);
-				para.psi2[ind] = make_cuDoubleComplex(0.01, 0.0);
+        para.phase[ind] = 
+          para.kvec[0]*px + para.kvec[1]*py + para.kvec[2]*pz;
 
-			}
-		}
-	}
+        para.psi1[ind] = make_cuDoubleComplex(1.0, 0.0);
+        para.psi2[ind] = make_cuDoubleComplex(0.01, 0.0);
 
+
+}
+
+void set_nozzle_and_phase_and_psi()
+{
+  int nb = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK);
+  set_nozzle_and_phase_and_psi_kernel<<<nb,THREADS_PER_BLOCK>>>();
+  cudaDeviceSynchronize();
 }
 
 void para_init(Torus* p, ISF* q, para_t* t, nozzle_t* n)
@@ -94,66 +97,72 @@ void para_init(Torus* p, ISF* q, para_t* t, nozzle_t* n)
 void isf_init(Torus* p, ISF* q)
 // Includes a bunch of hard-coded values
 {
-	p -> resx = 32;
-	p -> resy = 32;
-	p -> resz = 32;
-	p -> sizex = 2;
-	p -> sizey = 2;
-	p -> sizez = 2;
-	p -> plen = (p -> resx) * (p -> resy) * (p -> resz);
-	Torus_calc_ds(p);
-	cudaMalloc(&(p -> div), sizeof(double) * (p -> plen));
-	cudaMalloc(&(p -> fftbuf), sizeof(cuDoubleComplex) * (p -> plen));
+  p -> resx = 64;
+  p -> resy = 32;
+  p -> resz = 32;
+  p -> sizex = 4;
+  p -> sizey = 2;
+  p -> sizez = 2;
+  p -> plen = (p -> resx) * (p -> resy) * (p -> resz);
+  p -> yzlen = (p -> resy) * (p -> resz);
+  Torus_calc_ds(p);
+  cudaMalloc(&(p -> div), sizeof(double) * (p -> plen));
+  cudaMalloc(&(p -> fftbuf), sizeof(cuDoubleComplex) * (p -> plen));
+  cufftPlan3d(&(p -> fftplan), 
+      torus_cpu.resx, torus_cpu.resy, torus_cpu.resz, CUFFT_Z2Z);
 
 
-	q -> hbar = 0.1;
-	q -> dt = 1.0 / 48.0;
-	cudaMalloc(&(q -> mask),
-				sizeof(cuDoubleComplex) * (p -> plen));
+  q -> hbar = 0.1;
+  q -> dt = 1.0 / 48.0;
+  cudaMalloc(&(q -> mask), 
+        sizeof(cuDoubleComplex) * (p -> plen));
 
 
-	cudaMalloc(&(p -> vx),
-				sizeof(double) * (p -> plen));
-	cudaMalloc(&(p -> vy),
-				sizeof(double) * (p -> plen));
-	cudaMalloc(&(p -> vz),
-				sizeof(double) * (p -> plen));
-
-
-	cudaMemcpyToSymbol(torus, p, sizeof(Torus));
-	cudaMemcpyToSymbol(isf, q, sizeof(ISF));
+  cudaMalloc(&(p -> vx),
+        sizeof(double) * (p -> plen));
+  cudaMalloc(&(p -> vy),
+        sizeof(double) * (p -> plen));
+  cudaMalloc(&(p -> vz),
+        sizeof(double) * (p -> plen));
+  
+  
+  cudaMemcpyToSymbol(torus, p, sizeof(Torus));
+  cudaMemcpyToSymbol(isf, q, sizeof(ISF));
 
 }
 
 __global__ void constrain_velocity_iter(double t)
 // A special procedure we need to do in order for the jet dynamics to work
 {
-	for(int i=0; i<torus.resx; i++)
-	{
-		for(int j=0; j<torus.resy; j++)
-		{
-			for(int k=0; k<torus.resz; k++)
-			{
-				int ind = index3d(i,j,k);
 
-				if(para.isJet[ind] == 1)
-				{
-					double amp1 = cuCabs(para.psi1[ind]);
-					double amp2 = cuCabs(para.psi2[ind]);
+    int ind = check_limit(torus.plen);
+    if(ind < 0) return;
+    /*for(int i=0; i<torus.resx; i++)
+    {
+      for(int j=0; j<torus.resy; j++)
+      {
+        for(int k=0; k<torus.resz; k++)
+        {
+          int ind = index3d(i,j,k);*/
+          
+          if(para.isJet[ind] == 1)
+          {
+            double amp1 = cuCabs(para.psi1[ind]);
+            double amp2 = cuCabs(para.psi2[ind]);
+            
+            para.psi1[ind] = exp_mycomplex( 
+                     make_cuDoubleComplex(0.0, para.phase[ind] - para.omega * t));
+            mul_mycomplex(&para.psi1[ind], amp1);
 
-					para.psi1[ind] = exp_mycomplex(
-									 make_cuDoubleComplex(0.0, para.phase[ind] - para.omega * t));
-					mul_mycomplex(&para.psi1[ind], amp1);
-					/*if(para.psi1[ind].x < -0.34)
-						printf("%d %d %d %f\n",i,j,k,para.psi1[ind].x);*/
-					//printf("%d %d %d %f\n",i,j,k,para.psi1[ind].x);
-					para.psi2[ind] = exp_mycomplex(
-									 make_cuDoubleComplex(0.0, para.phase[ind] - para.omega * t));
-					mul_mycomplex(&para.psi2[ind], amp2);
-				}
-			}
-		}
-	}
+            para.psi2[ind] = exp_mycomplex( 
+                     make_cuDoubleComplex(0.0, para.phase[ind] - para.omega * t));
+            mul_mycomplex(&para.psi2[ind], amp2);
+
+          }
+/*
+        }
+      }
+    }*/
 }
 
 __global__ void print_psi()
@@ -185,9 +194,13 @@ __global__ void print_particles()
 
 void constrain_velocity(double t)
 {
-		constrain_velocity_iter<<<1,1>>>(t);
-		cudaDeviceSynchronize();
-		ISF_PressureProject();
+
+    tpstart(5);
+    int nb = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK); 
+    constrain_velocity_iter<<<nb,THREADS_PER_BLOCK>>>(t);
+    cudaDeviceSynchronize();
+    tpend(5);
+    ISF_PressureProject();
 }
 
 
@@ -207,71 +220,74 @@ particle_birth_kernel()
 
 void particle_birth(int num)
 {
-	particles_cpu.num_particles = num;
-	cudaMalloc(&(particles_cpu.x), sizeof(double) * num);
-	cudaMalloc(&(particles_cpu.y), sizeof(double) * num);
-	cudaMalloc(&(particles_cpu.z), sizeof(double) * num);
 
-	cudaMemcpyToSymbol(particles, &particles_cpu, sizeof(particles_t));
+  particles_cpu.num_particles = num;
+  cudaMalloc(&(particles_cpu.x), sizeof(double) * num);
+  cudaMalloc(&(particles_cpu.y), sizeof(double) * num);
+  cudaMalloc(&(particles_cpu.z), sizeof(double) * num);
 
-	particle_birth_kernel<<<1,1>>>();
-	cudaDeviceSynchronize();
+  cudaMemcpyToSymbol(particles, &particles_cpu, sizeof(particles_t)); 
+  
+  particle_birth_kernel<<<1,1>>>();
+  cudaDeviceSynchronize();
 }
 
 
 void jet_setup(int particleCount)
 {
-	int maxIters = 10;
-	// Basic setup
-	isf_init(&torus_cpu, &isf_cpu);
-	para_init(&torus_cpu, &isf_cpu, &para_cpu, &nozzle_cpu);
+  // init timer
+  tpinit();
 
-	ISF_BuildSchroedinger();
+  // Basic setup
 
-	// Jet-specific setup
-	set_nozzle_and_phase_and_psi<<<1,1>>>();
-	cudaDeviceSynchronize();
+  isf_init(&torus_cpu, &isf_cpu);
+  para_init(&torus_cpu, &isf_cpu, &para_cpu, &nozzle_cpu);
 
-	for(int i=0; i<10; i++)
-	{
-		constrain_velocity(0.0);
-		printf("iteration success \n");
-	}
+  ISF_BuildSchroedinger();
 
-	//print_psi<<<1,1>>>();
-	//cudaDeviceSynchronize();
+  // Jet-specific setup
+  
+ 
+  set_nozzle_and_phase_and_psi();
 
-	// generate particles
-	particle_birth(particleCount);
+  cudaDeviceSynchronize();
 
-	// Main algorithm
-	for (int i=0; i<maxIters; i++)
-	{
-		// Simulate Incompressible Schroedinger Flow
-		ISF_SchroedingerFlow();
-		ISF_Normalize();
-		ISF_PressureProject();
+  for(int i=0; i<10; i++)
+  {
+    constrain_velocity(0.0);
+  }
 
-		constrain_velocity((i+1) * isf_cpu.dt);
+  printf("Initialization Done! \n");
 
-		// Particle birth
-		// rt = rand(n_particles,1)*2*pi;
-		// newx = nozzle_cen(1)*ones(size(rt));
-		// newy = nozzle_cen(2) + 0.9*nozzle_rad*cos(rt);
-		// newz = nozzle_cen(3) + 0.9*nozzle_rad*sin(rt);
-		// particle.x = [particle.x;newx];
-		// particle.y = [particle.y;newy];
-		// particle.z = [particle.z;newz];
+  //print_psi<<<1,1>>>();
+  //cudaDeviceSynchronize(); 
 
-		// Do particle advection
+  // generate particles
+  particle_birth(particleCount);
 
-		ISF_VelocityOneForm(isf_cpu.hbar);
-		Torus_StaggeredSharp();
-		StaggeredAdvect();
+  // Main algorithm
+  for (int i=0; i<500; i++)
+  {
+    // Simulate Incompressible Schroedinger Flow
+    ISF_SchroedingerFlow();
+    ISF_Normalize();
+    ISF_PressureProject();
 
-		printf("Iteration %d done!\n", i);
+    constrain_velocity((i+1) * isf_cpu.dt);
 
-	}
-	// print_particles<<<1,1>>>();
-	// cudaDeviceSynchronize();
+    // Do particle advection
+
+    ISF_VelocityOneForm(isf_cpu.hbar);
+    Torus_StaggeredSharp();
+    StaggeredAdvect();
+
+    //printf("Iteration %d done!\n", i);
+  }
+
+
+  tpsummary();
+
+  //print_psi<<<1,1>>>(); cudaDeviceSynchronize();  
+  //print_particles<<<1,1>>>(); cudaDeviceSynchronize();
+  
 }
