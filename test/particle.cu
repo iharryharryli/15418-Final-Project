@@ -5,9 +5,10 @@ struct particles_t
   double *x;
   double *y;
   double *z;
-  // double* vx;
-  // double* vy;
-  // double* vz;
+
+  int spawn_rate;
+  int curr_particles;
+  int max_particles;
   int num_particles;
 };
 

@@ -39,7 +39,7 @@ __global__ void set_nozzle_and_phase_and_psi()
 					para.isJet[ind] = 0;
 				}
 
-				para.phase[ind] = 
+				para.phase[ind] =
 					para.kvec[0]*px + para.kvec[1]*py + para.kvec[2]*pz;
 
 				para.psi1[ind] = make_cuDoubleComplex(1.0, 0.0);
@@ -57,7 +57,7 @@ void para_init(Torus* p, ISF* q, para_t* t, nozzle_t* n)
 				 sizeof(cuDoubleComplex) * (p -> plen));
 	cudaMalloc(&(t -> psi2),
 				 sizeof(cuDoubleComplex) * (p -> plen));
-	
+
 	cudaMalloc(&(t -> isJet),
 				 sizeof(char) * (p -> plen));
 
@@ -67,7 +67,7 @@ void para_init(Torus* p, ISF* q, para_t* t, nozzle_t* n)
 	(t -> jet_velocity)[0] = 1.0;
 	(t -> jet_velocity)[1] = 0.0;
 	(t -> jet_velocity)[2] = 0.0;
-	
+
 	n->center[0] = 2.0 - 1.7;
 	n->center[1] = 1.0 - 0.034;
 	n->center[2] = 1.0 + 0.066;
@@ -75,8 +75,8 @@ void para_init(Torus* p, ISF* q, para_t* t, nozzle_t* n)
 	n->rad = 0.5;
 
 	(t -> kvec)[0] = (t -> jet_velocity)[0] / (q -> hbar);
-	(t -> kvec)[1] = (t -> jet_velocity)[1] / (q -> hbar); 
-	(t -> kvec)[2] = (t -> jet_velocity)[2] / (q -> hbar); 
+	(t -> kvec)[1] = (t -> jet_velocity)[1] / (q -> hbar);
+	(t -> kvec)[2] = (t -> jet_velocity)[2] / (q -> hbar);
 
 	t -> omega = 0.0;
 	for(int i=0; i<3; i++)
@@ -85,7 +85,7 @@ void para_init(Torus* p, ISF* q, para_t* t, nozzle_t* n)
 	}
 
 	t -> omega /= 2.0 * (q -> hbar);
-	
+
 
 	cudaMemcpyToSymbol(para, t, sizeof(para_t));
 	cudaMemcpyToSymbol(nozzle, n, sizeof(nozzle_t));
@@ -94,10 +94,10 @@ void para_init(Torus* p, ISF* q, para_t* t, nozzle_t* n)
 void isf_init(Torus* p, ISF* q)
 // Includes a bunch of hard-coded values
 {
-	p -> resx = 64;
+	p -> resx = 32;
 	p -> resy = 32;
 	p -> resz = 32;
-	p -> sizex = 4;
+	p -> sizex = 2;
 	p -> sizey = 2;
 	p -> sizez = 2;
 	p -> plen = (p -> resx) * (p -> resy) * (p -> resz);
@@ -108,7 +108,7 @@ void isf_init(Torus* p, ISF* q)
 
 	q -> hbar = 0.1;
 	q -> dt = 1.0 / 48.0;
-	cudaMalloc(&(q -> mask), 
+	cudaMalloc(&(q -> mask),
 				sizeof(cuDoubleComplex) * (p -> plen));
 
 
@@ -118,8 +118,8 @@ void isf_init(Torus* p, ISF* q)
 				sizeof(double) * (p -> plen));
 	cudaMalloc(&(p -> vz),
 				sizeof(double) * (p -> plen));
-	
-	
+
+
 	cudaMemcpyToSymbol(torus, p, sizeof(Torus));
 	cudaMemcpyToSymbol(isf, q, sizeof(ISF));
 
@@ -135,19 +135,19 @@ __global__ void constrain_velocity_iter(double t)
 			for(int k=0; k<torus.resz; k++)
 			{
 				int ind = index3d(i,j,k);
-				
+
 				if(para.isJet[ind] == 1)
 				{
 					double amp1 = cuCabs(para.psi1[ind]);
 					double amp2 = cuCabs(para.psi2[ind]);
-					
-					para.psi1[ind] = exp_mycomplex( 
+
+					para.psi1[ind] = exp_mycomplex(
 									 make_cuDoubleComplex(0.0, para.phase[ind] - para.omega * t));
 					mul_mycomplex(&para.psi1[ind], amp1);
 					/*if(para.psi1[ind].x < -0.34)
 						printf("%d %d %d %f\n",i,j,k,para.psi1[ind].x);*/
 					//printf("%d %d %d %f\n",i,j,k,para.psi1[ind].x);
-					para.psi2[ind] = exp_mycomplex( 
+					para.psi2[ind] = exp_mycomplex(
 									 make_cuDoubleComplex(0.0, para.phase[ind] - para.omega * t));
 					mul_mycomplex(&para.psi2[ind], amp2);
 				}
@@ -191,7 +191,7 @@ void constrain_velocity(double t)
 }
 
 
-__global__ void 
+__global__ void
 particle_birth_kernel()
 {
 	for(int i=0; i<particles.num_particles; i++)
@@ -201,7 +201,7 @@ particle_birth_kernel()
 
 		particles.x[i] = nozzle.center[0];
 		particles.y[i] = nozzle.center[1] + 0.9 * nozzle.rad * cos(rt);
-		particles.z[i] = nozzle.center[2] + 0.9 * nozzle.rad * sin(rt); 
+		particles.z[i] = nozzle.center[2] + 0.9 * nozzle.rad * sin(rt);
 	}
 }
 
@@ -212,16 +212,16 @@ void particle_birth(int num)
 	cudaMalloc(&(particles_cpu.y), sizeof(double) * num);
 	cudaMalloc(&(particles_cpu.z), sizeof(double) * num);
 
-	cudaMemcpyToSymbol(particles, &particles_cpu, sizeof(particles_t)); 
-	
+	cudaMemcpyToSymbol(particles, &particles_cpu, sizeof(particles_t));
+
 	particle_birth_kernel<<<1,1>>>();
 	cudaDeviceSynchronize();
 }
 
 
-void jet_setup(double *px, double *py, double *pz, int particleCount)
+void jet_setup(int particleCount)
 {
-	int maxIters = 50;
+	int maxIters = 10;
 	// Basic setup
 	isf_init(&torus_cpu, &isf_cpu);
 	para_init(&torus_cpu, &isf_cpu, &para_cpu, &nozzle_cpu);
@@ -239,7 +239,7 @@ void jet_setup(double *px, double *py, double *pz, int particleCount)
 	}
 
 	//print_psi<<<1,1>>>();
-	//cudaDeviceSynchronize(); 
+	//cudaDeviceSynchronize();
 
 	// generate particles
 	particle_birth(particleCount);
@@ -272,9 +272,6 @@ void jet_setup(double *px, double *py, double *pz, int particleCount)
 		printf("Iteration %d done!\n", i);
 
 	}
-	print_particles<<<1,1>>>(); 
-	cudaDeviceSynchronize();
-	cudaMemcpy(px, (particles_cpu.x), sizeof(double) * particleCount, cudaMemcpyDeviceToHost);
-	cudaMemcpy(py, (particles_cpu.y), sizeof(double) * particleCount, cudaMemcpyDeviceToHost);
-	cudaMemcpy(pz, (particles_cpu.z), sizeof(double) * particleCount, cudaMemcpyDeviceToHost);
+	// print_particles<<<1,1>>>();
+	// cudaDeviceSynchronize();
 }

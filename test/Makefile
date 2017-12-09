@@ -36,7 +36,7 @@ LDFRAMEWORKS := $(addprefix -framework , $(FRAMEWORKS))
 
 NVCC=nvcc
 
-OBJS=$(OBJDIR)/main.o $(OBJDIR)/jet.o $(OBJDIR)/fft.o $(OBJDIR)/cudaRenderer.o \
+OBJS=  $(OBJDIR)/fft.o $(OBJDIR)/main.o $(OBJDIR)/cudaRenderer.o  \
 	 $(OBJDIR)/ppm.o $(OBJDIR)/noise.o $(OBJDIR)/sceneLoader.o
 
 

@@ -3,10 +3,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <vector>
-
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <driver_functions.h>
+#include "jet.cu"
 
 #include "cudaRenderer.h"
 #include "image.h"
@@ -451,7 +448,6 @@ myShadePixel(int circleIndex, float2 pixelCenter, float3 p, float4& existingColo
 }
 
 
-
 // kernelRenderCircles -- (CUDA device code)
 //
 // Each thread renders a circle.  Since there is no protection to
@@ -568,8 +564,8 @@ CudaRenderer::loadISF(int particleCount, double* px, double *py, double *pz,
     int sizex, int sizey, int sizez)
 {
 	numCircles = particleCount;
-	loadISFScene(particleCount, 
-		px, py, pz, 
+	loadISFScene(particleCount,
+		px, py, pz,
 		sizex, sizey, sizez,
 		position, velocity, color, radius);
 }
@@ -749,7 +745,8 @@ CudaRenderer::setupISF() {
 	params.imageData = cudaDeviceImageData;
 
 	// My Setup
-	params.numblock_h = (image->width) / BLOCK_W;
+	params.numblock_h = (image->height) / BLOCK_W;
+	// params.numblock_w = (image->width) / BLOCK_W;
 
 	int numblock = (params.numblock_h) * (params.numblock_h);
 
@@ -815,7 +812,7 @@ CudaRenderer::clearImage() {
 	if (sceneName == SNOWFLAKES || sceneName == SNOWFLAKES_SINGLE_FRAME) {
 		kernelClearImageSnowflake<<<gridDim, blockDim>>>();
 	} else {
-		kernelClearImage<<<gridDim, blockDim>>>(1.f, 1.f, 1.f, 1.f);
+		kernelClearImage<<<gridDim, blockDim>>>(0.f, 0.f, 0.f, 0.f);
 	}
 	cudaDeviceSynchronize();
 }
@@ -825,7 +822,7 @@ CudaRenderer::clearImage() {
 // Advance the simulation one time step.  Updates all circle positions
 // and velocities
 void
-CudaRenderer::advanceAnimation() 
+CudaRenderer::advanceAnimation()
 {
 	// 256 threads per block is a healthy number
 	dim3 blockDim(256, 1);
@@ -897,94 +894,8 @@ __global__ void kernelCircle(int limit)
 	}
 }
 
-__global__ void kernelBlock(int limit)
-{
-	int index = blockIdx.x * blockDim.x + threadIdx.x;
-
-	if (index >= limit)
-	return;
-
-	int BlockY = index / cuConstRendererParams.numblock_h;
-	int BlockX = index % cuConstRendererParams.numblock_h;
-
-	float boxL = BlockX * BLOCK_W;
-	float boxR = boxL + BLOCK_W;
-	float boxB = BlockY * BLOCK_W;
-	float boxT = boxB + BLOCK_W;
-
-	//printf("%f %f %f %f\n",boxL,boxR,boxB,boxT);
-
-	int count = 0;
-
-	int* arr = &(cuConstRendererParams.blockQueue
-				[index*cuConstRendererParams.numCircles]);
-
-	float imageWidth = cuConstRendererParams.imageWidth;
-
-	for(int i=0; i<cuConstRendererParams.numCircles; i++)
-	{
-
-	float3 p = *(float3*)(&cuConstRendererParams.position[i*3]);
-	float rad = cuConstRendererParams.radius[i];
-	if(circleInBox(imageWidth*p.x, imageWidth*p.y, imageWidth*rad,
-				boxL, boxR, boxT, boxB))
-	{
-		arr[count] = i;
-		count ++;
-	}
-	/*
-	if (arr[i] == 1)
-	{
-		arr[count] = i;
-		count ++;
-	}
-	*/
-	}
-
-	cuConstRendererParams.blockQueueSize[index] = count;
-}
-
-__global__ void kernelPixel() 
-{
-	int imageX = blockIdx.x * blockDim.x + threadIdx.x;
-	int imageY = blockIdx.y * blockDim.y + threadIdx.y;
-
-	int width = cuConstRendererParams.imageWidth;
-	int height = cuConstRendererParams.imageHeight;
-
-	if (imageX >= width || imageY >= height)
-		return;
-
-	float invWidth = 1.f / width;
-	float invHeight = 1.f / height;
-
-	float2 pixelCenterNorm = make_float2
-		(invWidth * (static_cast<float>(imageX) + 0.5f),
-		 invHeight * (static_cast<float>(imageY) + 0.5f));
-
-	float4* imgPtr = (float4*)(&cuConstRendererParams.imageData[4 * (imageY * width + imageX)]);
-
-	int blockY = imageY / BLOCK_W;
-	int blockX = imageX / BLOCK_W;
-
-	int index = cuConstRendererParams.numblock_h * blockY + blockX;
-
-	int* arr = &cuConstRendererParams.blockQueue
-					[index*cuConstRendererParams.numCircles];
-
-	for (int i=0; i<cuConstRendererParams.blockQueueSize[index]; i++)
-	{
-		int circle_i = arr[i];
-		float3 p = *(float3*)(&cuConstRendererParams.position[circle_i*3]);
-		shadePixel(circle_i, pixelCenterNorm, p, imgPtr);
-	}
-}
-
 __global__ void kernelAmazing()
 {
-	/*if (circle_i >= cuConstRendererParams.numCircles)
-	return;*/
-
 	__shared__ uint prefixSumInput[SCAN_BLOCK_DIM];
 	__shared__ uint prefixSumOutput[SCAN_BLOCK_DIM];
 	__shared__ uint prefixSumScratch[2 * SCAN_BLOCK_DIM];
@@ -993,13 +904,6 @@ __global__ void kernelAmazing()
 
 	int blockY = blockIdx.x / cuConstRendererParams.numblock_h;
 	int blockX = blockIdx.x % cuConstRendererParams.numblock_h;
-
- /* float boxL = blockX * BLOCK_W;
-	float boxR = boxL + BLOCK_W;
-	float boxB = blockY * BLOCK_W;
-	float boxT = boxB + BLOCK_W;
-
-	float imageWidth = cuConstRendererParams.imageWidth;*/
 
 	int imageY = blockY * BLOCK_W + threadIdx.x / BLOCK_W;
 	int imageX = blockX * BLOCK_W + threadIdx.x % BLOCK_W;
@@ -1030,14 +934,6 @@ __global__ void kernelAmazing()
 			prefixSumInput[threadIdx.x] = 0;
 		else
 		{
-			/*float3 p = *(float3*)(&cuConstRendererParams.position[circle_i*3]);
-			float rad = cuConstRendererParams.radius[circle_i];
-
-			if(circleInBox(imageWidth*p.x, imageWidth*p.y, imageWidth*rad,
-						boxL, boxR, boxT, boxB))
-			prefixSumInput[threadIdx.x] = 1;
-			else
-			prefixSumInput[threadIdx.x] = 0;*/
 			prefixSumInput[threadIdx.x] = arr[circle_i];
 		}
 
@@ -1054,45 +950,22 @@ __global__ void kernelAmazing()
 
 		__syncthreads();
 
-/*
-		bool should_use_mine = (queue_len > 10);
-
-		if(should_use_mine)
-		{
-			 float4 colorAcc = *imgPtr;
-				for (int i=0; i<queue_len; i++)
-				{
-				float3 p = *(float3*)(&cuConstRendererParams.position[blockQueue[i]*3]);
-				//colorAcc =
-				myShadePixel(blockQueue[i], pixelCenterNorm, p, colorAcc);
-				//shadePixel(blockQueue[i], pixelCenterNorm, p, imgPtr);
-				}
-			 *imgPtr = colorAcc;
-		}
-		else
-		{*/
 			for (int i=0; i<queue_len; i++)
 				{
 				float3 p = *(float3*)(&cuConstRendererParams.position[blockQueue[i]*3]);
-				//shadePixel(blockQueue[i], pixelCenterNorm, p, imgPtr);
 				myShadePixel(blockQueue[i], pixelCenterNorm, p, colorAcc);
 
 				}
-
-//        }
-
-
 	}
 	*imgPtr = colorAcc;
-
 }
 
 void CudaRenderer::amazing()
 {
-	int threadsPerBlock = 256; 
+	int threadsPerBlock = 256;
 	int limit = numCircles;
 	int N = (limit + threadsPerBlock - 1) / threadsPerBlock;
- 
+
 	kernelCircle<<<N, threadsPerBlock>>> (limit);
 	cudaDeviceSynchronize();
 
@@ -1104,8 +977,133 @@ void CudaRenderer::amazing()
 	return;
 }
 
+// __device__ __inline__ void
+// ISF_AddPixel(float3 p) {
+
+// 	float diffX = p.x - pixelCenter.x;
+// 	float diffY = p.y - pixelCenter.y;
+// 	float pixelDist = diffX * diffX + diffY * diffY;
+
+// 	float rad = cuConstRendererParams.radius[circleIndex];;
+// 	float maxDist = rad * rad;
+
+// 	// circle does not contribute to the image
+// 	if (pixelDist > maxDist)
+// 		return ;
+
+// 	float3 rgb;
+// 	float alpha;
+
+// 	// there is a non-zero contribution.  Now compute the shading value
+
+// 	// This conditional is in the inner loop, but it evaluates the
+// 	// same direction for all threads so it's cost is not so
+// 	// bad. Attempting to hoist this conditional is not a required
+// 	// student optimization in Assignment 2
+// 	if (cuConstRendererParams.sceneName == SNOWFLAKES || cuConstRendererParams.sceneName == SNOWFLAKES_SINGLE_FRAME) {
+
+// 		const float kCircleMaxAlpha = .5f;
+// 		const float falloffScale = 4.f;
+
+// 		float normPixelDist = sqrt(pixelDist) / rad;
+// 		rgb = lookupColor(normPixelDist);
+
+// 		float maxAlpha = .6f + .4f * (1.f-p.z);
+// 		maxAlpha = kCircleMaxAlpha * fmaxf(fminf(maxAlpha, 1.f), 0.f); // kCircleMaxAlpha * clamped value
+// 		alpha = maxAlpha * exp(-1.f * falloffScale * normPixelDist * normPixelDist);
+
+// 	} else {
+// 		// simple: each circle has an assigned color
+// 		int index3 = 3 * circleIndex;
+// 		rgb = *(float3*)&(cuConstRendererParams.color[index3]);
+// 		alpha = .2f;
+// 	}
+
+// 	float oneMinusAlpha = 1.f - alpha;
+
+// 	// BEGIN SHOULD-BE-ATOMIC REGION
+// 	// global memory read
+
+// 	//float4 newColor;
+// 	existingColor.x = alpha * rgb.x + oneMinusAlpha * existingColor.x;
+// 	existingColor.y = alpha * rgb.y + oneMinusAlpha * existingColor.y;
+// 	existingColor.z = alpha * rgb.z + oneMinusAlpha * existingColor.z;
+// 	existingColor.w = alpha + existingColor.w;
+
+// 	// global memory write
+// 	//return newColor;
+// 	//existingColor = newColor;
+
+// 	// END SHOULD-BE-ATOMIC REGION
+// }
+
+__global__ void ISF_kernel()
+{
+	float brightness = 0.95f;
+	float avgCount = 10.0f;
+	float r = powf(1.0f - brightness, 1.0f / avgCount);
+	int blockY = blockIdx.x / cuConstRendererParams.numblock_h;
+	int blockX = blockIdx.x % cuConstRendererParams.numblock_h;
+
+	int imageY = blockY * BLOCK_W + threadIdx.x / BLOCK_W;
+	int imageX = blockX * BLOCK_W + threadIdx.x % BLOCK_W;
+
+	int width = cuConstRendererParams.imageWidth;
+	int height = cuConstRendererParams.imageHeight;
+
+	float4* imgPtr =
+		(float4*)(&cuConstRendererParams.imageData[4 * (imageY * width + imageX)]);
+
+	int acc = 0;
+	int threshold = 5;
+
+	for (int i=0; i<particles.num_particles; i++)
+	{
+		double px = particles.x[i];
+		double py = particles.y[i];
+
+		int x = width * (px / ((double)torus.sizex));
+		int y = height * (py / ((double)torus.sizey));
+
+		// printf("X:%d Y:%d\n", x, y);
+
+		if ((x == imageX) && (y == imageY))
+		{
+			acc += 1;
+		}
+		if (acc >= threshold)
+		{
+			break;
+		}
+	}
+
+	if (acc == 0) return;
+	// printf("Pixel colored!");
+
+	float4 color = *imgPtr;
+	r = 0.8f;
+	color.x = 1.0f - powf(r, acc);//(float)acc / (float)threshold;
+	color.y = 1.0f - powf(r, acc);//(float)acc / (float)threshold;
+	color.z = 1.0f - powf(r, acc);//(float)acc / (float)threshold;
+	color.w = 1.0f;
+
+	// global memory write
+	*imgPtr = color;
+}
+
+void CudaRenderer::ISF_render()
+{
+
+	int numblock = (image->width) / BLOCK_W;
+	numblock *= numblock;
+	ISF_kernel<<<numblock, SCAN_BLOCK_DIM>>>();
+	cudaDeviceSynchronize();
+
+	return;
+}
+
 void
-CudaRenderer::render() 
+CudaRenderer::render()
 {
 	amazing();
 }

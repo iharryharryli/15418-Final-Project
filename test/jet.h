@@ -1,1 +1,2 @@
-void jet_setup(double *px, double *py, double *pz, int particleCount);
+void jet_setup(int particleCount);
+

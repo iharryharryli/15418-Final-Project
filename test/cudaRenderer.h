@@ -52,6 +52,8 @@ public:
 
     void advanceAnimation();
 
+    void ISF_render();
+
     void render();
 
     void weak();
@@ -61,7 +63,7 @@ public:
     void smart();
 
     void best();
-    
+
     void amazing();
 
     void shadePixel(
