@@ -34,17 +34,21 @@ collect_init_kernel()
 
 void collect_init()
 {
+  tpstart(13);
   int nb = calc_numblock(collector_cpu.content_len, THREADS_PER_BLOCK);
   collect_init_kernel<<<nb, THREADS_PER_BLOCK>>>();
   cudaDeviceSynchronize();
+  tpend(13);
 }
 
 void collect_sort(int* keys)
 {
+  tpstart(14);
   thrust::device_ptr<int> dev_keys(keys);
   thrust::device_ptr<int> dev_values(collector_cpu.content);
   thrust::sort_by_key(dev_keys, dev_keys + collector_cpu.content_len, 
       dev_values);
+  tpend(14);
 }
 
 __global__ void 
@@ -53,7 +57,7 @@ collect_break_kernel(int* keys)
   int ind = check_limit(collector.content_len); 
   if(ind < 0) return;
   if(ind == 0)
-    collector.helper[ind] = 0;
+    collector.helper[ind] = ind;
   else
   {
     //printf("%d %d %d \n", collector.content[ind - 1],
@@ -70,9 +74,11 @@ collect_break_kernel(int* keys)
 
 void collect_break(int* keys)
 {
+  tpstart(15);
   int nb = calc_numblock(collector_cpu.content_len, THREADS_PER_BLOCK);
   collect_break_kernel<<<nb, THREADS_PER_BLOCK>>>(keys);
   cudaDeviceSynchronize();
+  tpend(15);
 }
 
 struct is_nonnegative
@@ -86,12 +92,18 @@ struct is_nonnegative
 
 int collect_result()
 {
-  thrust::device_ptr<int> helper_ptr(collector_cpu.helper);
-  thrust::device_ptr<int> division_ptr(collector_cpu.division);
-  thrust::device_ptr<int> division_end = thrust::copy_if(helper_ptr, 
-      helper_ptr + collector_cpu.content_len,
-      division_ptr, is_nonnegative());
-  return (division_end - division_ptr);
+  //int* out;
+  //cudaMalloc(&out, sizeof(int) * collector_cpu.content_len);
+  tpstart(16);
+  int* division_end = thrust::copy_if(
+      thrust::device, collector_cpu.helper, 
+      collector_cpu.helper + collector_cpu.content_len,
+      collector_cpu.division, is_nonnegative());
+  /*thrust::inclusive_scan(thrust::device, helper_ptr, 
+      helper_ptr + collector_cpu.content_len, out);*/
+  tpend(16);
+  //return 0;
+  return (division_end - collector_cpu.division);
 }
 
 int collect_main(int* keys)
@@ -116,32 +128,28 @@ collect_print(int* keys)
 }
 
 __global__ void
-collect_test_kernel(int* keys)
+collect_test_kernel(int* keys, int len, int div)
 {
-  keys[0] = 4;
-  keys[1] = 2;
-  keys[2] = 1;
-  keys[3] = 1;
-  keys[4] = 2;
-  keys[5] = 4;
-  keys[6] = 1;
-  keys[7] = 1;
-  keys[8] = 3;
-  keys[9] = 1;
+  for(int i=0; i<len; i++)
+    keys[i] = i % 100;
 }
 
 void collect_test()
 {
-  int len = 10;
-  collect_create(len, 10);
+  int len = 1000000, div = 262144;
+  collect_create(len, div);
 
   int* keys;
   cudaMalloc(&keys, sizeof(int) * len);
-  collect_test_kernel<<<1,1>>>(keys); cudaDeviceSynchronize();
-  
+  collect_test_kernel<<<1,1>>>(keys, len, div); cudaDeviceSynchronize();
+ 
+  tpinit();
+
   printf("result: %d \n", collect_main(keys));
 
-  collect_print<<<1,1>>>(keys);  cudaDeviceSynchronize(); 
+  //collect_print<<<1,1>>>(keys);  cudaDeviceSynchronize(); 
+
+  tpsummary();
 }
 
 

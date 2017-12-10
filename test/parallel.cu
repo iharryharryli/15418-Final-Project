@@ -65,6 +65,10 @@ const char* profileNames[]=
   "StaggeredAdvect", //10
   "fftshift", //11
   "ISF_ElementProduct", //12
+  "collect_init", //13
+  "collect_sort", //14
+  "collect_break", //15
+  "collect_result", //16
 
 };
 
