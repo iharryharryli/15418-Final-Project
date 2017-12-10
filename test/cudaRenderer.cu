@@ -1039,9 +1039,8 @@ void CudaRenderer::amazing()
 
 __global__ void ISF_kernel()
 {
-	float brightness = 0.95f;
-	float avgCount = 10.0f;
-	float r = powf(1.0f - brightness, 1.0f / avgCount);
+	float avgCount = 1.0f;
+	float r = 0.8f;
 	int blockY = blockIdx.x / cuConstRendererParams.numblock_h;
 	int blockX = blockIdx.x % cuConstRendererParams.numblock_h;
 
@@ -1081,10 +1080,9 @@ __global__ void ISF_kernel()
 	// printf("Pixel colored!");
 
 	float4 color = *imgPtr;
-	r = 0.8f;
-	color.x = 1.0f - powf(r, acc);//(float)acc / (float)threshold;
-	color.y = 1.0f - powf(r, acc);//(float)acc / (float)threshold;
-	color.z = 1.0f - powf(r, acc);//(float)acc / (float)threshold;
+	color.x = 1.0f - powf(r, acc/avgCount);//(float)acc / (float)threshold;
+	color.y = 1.0f - powf(r, acc/avgCount);//(float)acc / (float)threshold;
+	color.z = 1.0f - powf(r, acc/avgCount);//(float)acc / (float)threshold;
 	color.w = 1.0f;
 
 	// global memory write

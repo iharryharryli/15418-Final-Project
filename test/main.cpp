@@ -13,9 +13,9 @@ void jet_setup(int cnt);
 
 int main(int argc, char** argv)
 {
-	int imageWidth = 256;
-	int imageHeight = 256;
-	int particleCount = 50000;
+	int imageWidth = 512;
+	int imageHeight = 512;
+	int particleCount = 5000000;
 
 	CudaRenderer* renderer;
 	renderer = new CudaRenderer();
