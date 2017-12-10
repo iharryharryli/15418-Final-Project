@@ -1,13 +1,19 @@
 
+struct render_info_t
+{
+  int index;
+  int value;
+};
+
 struct collect_data_t
 {
   int content_len;
   int division_len;
-  int* content;
 
   int* division;
-  
   int* helper;
+
+  render_info_t* output;
 };
 
 __constant__ collect_data_t collector;
@@ -17,37 +23,20 @@ void collect_create(int content_len, int division_len)
 {
   collector_cpu.content_len = content_len;
   collector_cpu.division_len = division_len;
-  cudaMalloc(&(collector_cpu.content), sizeof(int) * content_len);
   cudaMalloc(&(collector_cpu.helper), sizeof(int) * content_len);
   cudaMalloc(&(collector_cpu.division), sizeof(int) * division_len);
+  cudaMalloc(&(collector_cpu.output), 
+              sizeof(collect_data_t) * division_len);
 
   cudaMemcpyToSymbol(collector, &collector_cpu, sizeof(collect_data_t));
 }
 
-__global__ void 
-collect_init_kernel()
-{
-  int ind = check_limit(collector.content_len);
-  if(ind < 0) return;
-  collector.content[ind] = ind;
-}
-
-void collect_init()
-{
-  tpstart(13);
-  int nb = calc_numblock(collector_cpu.content_len, THREADS_PER_BLOCK);
-  collect_init_kernel<<<nb, THREADS_PER_BLOCK>>>();
-  cudaDeviceSynchronize();
-  tpend(13);
-}
 
 void collect_sort(int* keys)
 {
   tpstart(14);
-  thrust::device_ptr<int> dev_keys(keys);
-  thrust::device_ptr<int> dev_values(collector_cpu.content);
-  thrust::sort_by_key(dev_keys, dev_keys + collector_cpu.content_len, 
-      dev_values);
+  thrust::sort(thrust::device, keys, 
+      keys + collector_cpu.content_len); 
   tpend(14);
 }
 
@@ -60,8 +49,6 @@ collect_break_kernel(int* keys)
     collector.helper[ind] = ind;
   else
   {
-    //printf("%d %d %d \n", collector.content[ind - 1],
-    //    collector.content[ind], ind);
     if(keys[ind - 1] !=
          keys[ind])
     {
@@ -90,28 +77,51 @@ struct is_nonnegative
     }
 };
 
-int collect_result()
+__global__ void
+collect_result_kernel(int limit, int* keys)
 {
-  //int* out;
-  //cudaMalloc(&out, sizeof(int) * collector_cpu.content_len);
+  int ind = check_limit(limit);
+  if(ind<0) return;
+
+  collector.output[ind].index = 
+    keys[collector.division[ind]];
+  
+  if(ind+1 == limit)
+    collector.output[ind].value = 
+      limit - collector.division[ind];
+  else
+    collector.output[ind].value = 
+      collector.division[ind+1] - collector.division[ind];
+
+}
+
+int collect_result(int* keys)
+{
   tpstart(16);
   int* division_end = thrust::copy_if(
       thrust::device, collector_cpu.helper, 
       collector_cpu.helper + collector_cpu.content_len,
       collector_cpu.division, is_nonnegative());
-  /*thrust::inclusive_scan(thrust::device, helper_ptr, 
-      helper_ptr + collector_cpu.content_len, out);*/
   tpend(16);
-  //return 0;
-  return (division_end - collector_cpu.division);
+  
+  int limit = (division_end - collector_cpu.division);
+  
+  tpstart(17);
+  int nb = calc_numblock(limit, THREADS_PER_BLOCK);
+  collect_result_kernel<<<nb, THREADS_PER_BLOCK>>>
+    (limit, keys);
+  cudaDeviceSynchronize();  
+  tpend(17);
+
+
+  return limit;
 }
 
 int collect_main(int* keys)
 {
-  collect_init();
   collect_sort(keys);
   collect_break(keys);
-  return collect_result();
+  return collect_result(keys);
 }
 
 
