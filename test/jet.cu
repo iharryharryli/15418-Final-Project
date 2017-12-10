@@ -1,5 +1,6 @@
 #include "ISF.cu"
 #include "particle.cu"
+#include "collect.cu"
 
 struct nozzle_t
 {

@@ -8,6 +8,7 @@
 using namespace std;
 
 void fft();
+void collect_test();
 
 void jet_setup(int cnt);
 
