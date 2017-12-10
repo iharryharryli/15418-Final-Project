@@ -88,7 +88,7 @@ collect_result_kernel(int limit, int* keys)
   
   if(ind+1 == limit)
     collector.output[ind].value = 
-      limit - collector.division[ind];
+      collector.content_len - collector.division[ind];
   else
     collector.output[ind].value = 
       collector.division[ind+1] - collector.division[ind];
@@ -133,7 +133,8 @@ collect_print(int* keys)
 {
   for(int i=0; i<collector.division_len; i++)
   {
-    printf("%d \n", collector.division[i]);
+    printf("%d %d \n", collector.output[i].index,
+        collector.output[i].value);
   }
 }
 
@@ -157,7 +158,7 @@ void collect_test()
 
   printf("result: %d \n", collect_main(keys));
 
-  //collect_print<<<1,1>>>(keys);  cudaDeviceSynchronize(); 
+  collect_print<<<1,1>>>(keys);  cudaDeviceSynchronize(); 
 
   tpsummary();
 }
