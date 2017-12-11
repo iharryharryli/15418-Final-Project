@@ -17,7 +17,7 @@ int main(int argc, char** argv)
 {
 	int imageWidth = 1024;
 	int imageHeight = 512;
-	int particleCount = 50000;
+	int particleCount = PARTICULE_NUM;
 
 	CudaRenderer* renderer;
 	renderer = new CudaRenderer();

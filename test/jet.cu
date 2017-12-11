@@ -97,10 +97,11 @@ void para_init(Torus* p, ISF* q, para_t* t, nozzle_t* n)
 
 void isf_init(Torus* p, ISF* q)
 // Includes a bunch of hard-coded values
-{
-  p -> resx = 64;
-  p -> resy = 32;
-  p -> resz = 32;
+{ 
+  const int base = 32;
+  p -> resx = 2 * base;
+  p -> resy = base;
+  p -> resz = base;
   p -> sizex = 4;
   p -> sizey = 2;
   p -> sizez = 2;
@@ -240,7 +241,6 @@ void particle_birth(int num)
 void jet_setup(int particleCount)
 {
   // init timer
-  tpinit();
 
   // Basic setup
 
@@ -270,6 +270,8 @@ void jet_setup(int particleCount)
   // generate particles
   particle_birth(particleCount);
 
+  tpinit();
+
   // Main algorithm
   for (int i=0; i<300; i++)
   {
@@ -279,6 +281,7 @@ void jet_setup(int particleCount)
     ISF_PressureProject();
 
     constrain_velocity((i+1) * isf_cpu.dt);
+
 
     // Do particle advection
 

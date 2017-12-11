@@ -7,6 +7,9 @@
 
 #include "circleRenderer.h"
 
+#define PARTICULE_NUM 5000000
+#define AVG_COUNT (PARTICULE_NUM / 250000.0f)
+
 
 class CudaRenderer : public CircleRenderer {
 

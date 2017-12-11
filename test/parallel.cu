@@ -73,11 +73,26 @@ const char* profileNames[]=
 
 };
 
+const int total_time_include [] =
+{0,1,2,3,4,5,8,};
+
+bool tp_should_consider(int k)
+{
+  int len = sizeof(total_time_include) / sizeof(int);
+  for(int i=0; i<len; i++)
+  {
+    if(total_time_include[i] == k)
+      return true;
+  }
+  return false;
+}
+
 void tpsummary()
 {
   double total = 0.0;
   for(int i=0; i<PROFILE_N; i++)
   {
+    //if(tp_should_consider(i))
     total += time_profile.total[i];
   }
   printf("\n\n***** summary *****\n total time: %f \n\n", total);
@@ -86,7 +101,9 @@ void tpsummary()
   {
     if(time_profile.count[i] == 0) continue;
     printf("Profile for %s\n",profileNames[i]);
-    printf("Total Percentage %f\n", 100 * time_profile.total[i] / total);
+    //if(tp_should_consider(i))
+    printf("Total Percentage %f %\n", 
+        100 * time_profile.total[i] / total);
     printf("Avg Time %.10f\n", 
         time_profile.total[i] / time_profile.count[i]);
     printf("Total Time %.10f\n", time_profile.total[i]);

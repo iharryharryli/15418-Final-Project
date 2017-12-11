@@ -1041,7 +1041,7 @@ __global__ void ISF_render_kernel(int limit)
 {
   int ind = check_limit(limit);
   if(ind<0) return;
-	float avgCount = 0.2f;
+	float avgCount = AVG_COUNT;
 	float r = 0.8f;
 
 

@@ -166,7 +166,7 @@ void StaggeredAdvect()
 {
   tpstart(10);
   int nb = calc_numblock(particles_cpu.num_particles, THREADS_PER_BLOCK);
-  StaggeredAdvect_fma_kernel<<<nb,THREADS_PER_BLOCK>>>();
+  StaggeredAdvect_kernel<<<nb,THREADS_PER_BLOCK>>>();
   cudaDeviceSynchronize(); 
   tpend(10); 
 }
