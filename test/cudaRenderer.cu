@@ -1037,47 +1037,23 @@ void CudaRenderer::amazing()
 // 	// END SHOULD-BE-ATOMIC REGION
 // }
 
-__global__ void ISF_kernel()
+__global__ void ISF_render_kernel(int limit)
 {
+  int ind = check_limit(limit);
+  if(ind<0) return;
 	float avgCount = 1.0f;
 	float r = 0.8f;
-	int blockY = blockIdx.x / cuConstRendererParams.numblock_h;
-	int blockX = blockIdx.x % cuConstRendererParams.numblock_h;
 
-	int imageY = blockY * BLOCK_W + threadIdx.x / BLOCK_W;
-	int imageX = blockX * BLOCK_W + threadIdx.x % BLOCK_W;
-
-	int width = cuConstRendererParams.imageWidth;
-	int height = cuConstRendererParams.imageHeight;
 
 	float4* imgPtr =
-		(float4*)(&cuConstRendererParams.imageData[4 * (imageY * width + imageX)]);
+		(float4*)(&cuConstRendererParams.imageData
+        [4 * (collector.output[ind].index)]);
 
-	int acc = 0;
-	int threshold = 5;
+	int acc = collector.output[ind].value;
+	const int threshold = 5;
 
-	for (int i=0; i<particles.num_particles; i++)
-	{
-		double px = particles.x[i];
-		double py = particles.y[i];
+  if(acc > threshold) acc = threshold;
 
-		int x = width * (px / ((double)torus.sizex));
-		int y = height * (py / ((double)torus.sizey));
-
-		// printf("X:%d Y:%d\n", x, y);
-
-		if ((x == imageX) && (y == imageY))
-		{
-			acc += 1;
-		}
-		if (acc >= threshold)
-		{
-			break;
-		}
-	}
-
-	if (acc == 0) return;
-	// printf("Pixel colored!");
 
 	float4 color = *imgPtr;
 	color.x = 1.0f - powf(r, acc/avgCount);//(float)acc / (float)threshold;
@@ -1089,15 +1065,46 @@ __global__ void ISF_kernel()
 	*imgPtr = color;
 }
 
-void CudaRenderer::ISF_render()
+__global__ void 
+ISF_locate_kernel()
+{
+  int ind = check_limit(particles.num_particles);
+  if(ind < 0) return;
+  
+  double px = particles.x[ind];
+  double py = particles.y[ind];
+  
+  int width = cuConstRendererParams.imageWidth;
+	int height = cuConstRendererParams.imageHeight;
+  
+  int x = width * (px / ((double)torus.sizex));
+  int y = height * (py / ((double)torus.sizey));
+  
+  particles.pixel_index[ind] = x + y * width;
+  
+
+}
+
+int CudaRenderer::ISF_locate()
 {
 
-	int numblock = (image->width) / BLOCK_W;
-	numblock *= numblock;
-	ISF_kernel<<<numblock, SCAN_BLOCK_DIM>>>();
+  int nb = calc_numblock(particles_cpu.num_particles,
+      THREADS_PER_BLOCK);
+  ISF_locate_kernel<<<nb, THREADS_PER_BLOCK>>>();
+  cudaDeviceSynchronize();
+
+  int colored_pixel = collect_main(particles_cpu.pixel_index);   
+
+  return colored_pixel;
+}
+
+void CudaRenderer::ISF_render(int limit)
+{
+
+	int numblock = calc_numblock(limit, THREADS_PER_BLOCK);
+	ISF_render_kernel<<<numblock, THREADS_PER_BLOCK>>>(limit);
 	cudaDeviceSynchronize();
 
-	return;
 }
 
 void

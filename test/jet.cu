@@ -226,6 +226,8 @@ void particle_birth(int num)
   cudaMalloc(&(particles_cpu.x), sizeof(double) * num);
   cudaMalloc(&(particles_cpu.y), sizeof(double) * num);
   cudaMalloc(&(particles_cpu.z), sizeof(double) * num);
+  
+  cudaMalloc(&(particles_cpu.pixel_index), sizeof(int) * num);
 
   cudaMemcpyToSymbol(particles, &particles_cpu, sizeof(particles_t)); 
   

@@ -52,7 +52,9 @@ public:
 
     void advanceAnimation();
 
-    void ISF_render();
+    //ISF relevant
+    void ISF_render(int limit);
+    int ISF_locate();
 
     void render();
 

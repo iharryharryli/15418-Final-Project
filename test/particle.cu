@@ -10,6 +10,8 @@ struct particles_t
   int curr_particles;
   int max_particles;
   int num_particles;
+
+  int* pixel_index;
 };
 
 __constant__ particles_t particles;
