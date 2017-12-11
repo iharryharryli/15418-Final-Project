@@ -12,6 +12,13 @@ void collect_create(int a, int b);
 
 // jet.cu
 void jet_setup(int cnt);
+void jet_main(int i);
+
+// particle.cu
+void tpstart(int a);
+void tpend(int a);
+void tpsummary();
+void tpinit();
 
 int main(int argc, char** argv)
 {
@@ -22,19 +29,38 @@ int main(int argc, char** argv)
 	CudaRenderer* renderer;
 	renderer = new CudaRenderer();
 
+
   collect_create(particleCount, imageWidth*imageHeight);
+  
+  renderer->allocOutputImage(imageWidth, imageHeight);
+  renderer->setupISF();
 
 	cout << "Hello World!!!" << endl;
 
 	jet_setup(particleCount);
 
+  tpinit();
 
-	renderer->allocOutputImage(imageWidth, imageHeight);
-    renderer->setupISF();
+  char filename_buf[100];
+
+  for(int i=0; i<500; i++)
+  {
+    jet_main(i);
+
+    tpstart(18);
     renderer->clearImage();
-    int colored_pixel = renderer->ISF_locate();
-    renderer->ISF_render(colored_pixel);
-    writePPMImage(renderer->getImage(), "test.ppm");
+    renderer->ISF_Fast_Render();
+    tpend(18);
+    tpstart(19);
+    sprintf(filename_buf,"frame/%d.ppm", i);
+    writePPMImage(renderer->getImage(), filename_buf);
+    tpend(19);
+
+    printf("iteration %d done. \n", i);
+
+  }
+
+  tpsummary();
 
 	return 0;
 }

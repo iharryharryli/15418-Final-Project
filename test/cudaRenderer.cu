@@ -809,11 +809,7 @@ CudaRenderer::clearImage() {
 		(image->width + blockDim.x - 1) / blockDim.x,
 		(image->height + blockDim.y - 1) / blockDim.y);
 
-	if (sceneName == SNOWFLAKES || sceneName == SNOWFLAKES_SINGLE_FRAME) {
-		kernelClearImageSnowflake<<<gridDim, blockDim>>>();
-	} else {
 		kernelClearImage<<<gridDim, blockDim>>>(0.f, 0.f, 0.f, 0.f);
-	}
 	cudaDeviceSynchronize();
 }
 
@@ -1105,8 +1101,77 @@ void CudaRenderer::ISF_render(int limit)
 
 }
 
+void CudaRenderer::ISF_Fast_Render()
+{
+  ISF_render(ISF_locate());
+}
+
 void
 CudaRenderer::render()
 {
 	amazing();
 }
+
+__global__ void ISF_slow_kernel()
+{
+	float avgCount = 1.0f;
+	float r = 0.8f;
+	int blockY = blockIdx.x / cuConstRendererParams.numblock_h;
+	int blockX = blockIdx.x % cuConstRendererParams.numblock_h;
+
+	int imageY = blockY * BLOCK_W + threadIdx.x / BLOCK_W;
+	int imageX = blockX * BLOCK_W + threadIdx.x % BLOCK_W;
+
+	int width = cuConstRendererParams.imageWidth;
+	int height = cuConstRendererParams.imageHeight;
+
+	float4* imgPtr =
+		(float4*)(&cuConstRendererParams.imageData[4 * (imageY * width + imageX)]);
+
+	int acc = 0;
+	int threshold = 5;
+
+	for (int i=0; i<particles.num_particles; i++)
+	{
+		double px = particles.x[i];
+		double py = particles.y[i];
+
+		int x = width * (px / ((double)torus.sizex));
+		int y = height * (py / ((double)torus.sizey));
+
+		// printf("X:%d Y:%d\n", x, y);
+
+		if ((x == imageX) && (y == imageY))
+		{
+			acc += 1;
+		}
+		if (acc >= threshold)
+		{
+			break;
+		}
+	}
+
+	if (acc == 0) return;
+	// printf("Pixel colored!");
+
+	float4 color = *imgPtr;
+	color.x = 1.0f - powf(r, acc/avgCount);//(float)acc / (float)threshold;
+	color.y = 1.0f - powf(r, acc/avgCount);//(float)acc / (float)threshold;
+	color.z = 1.0f - powf(r, acc/avgCount);//(float)acc / (float)threshold;
+	color.w = 1.0f;
+
+	// global memory write
+	*imgPtr = color;
+}
+
+void CudaRenderer::ISF_Slow_Render()
+{
+
+	int numblock = (image->width) / BLOCK_W;
+	numblock *= numblock;
+	ISF_slow_kernel<<<numblock, SCAN_BLOCK_DIM>>>();
+	cudaDeviceSynchronize();
+
+	return;
+}
+

@@ -262,7 +262,6 @@ void jet_setup(int particleCount)
     constrain_velocity(0.0);
   }
 
-  printf("Initialization Done! \n");
 
   //print_psi<<<1,1>>>();
   //cudaDeviceSynchronize(); 
@@ -270,12 +269,17 @@ void jet_setup(int particleCount)
   // generate particles
   particle_birth(particleCount);
 
-  tpinit();
+  printf("Initialization Done! \n");
 
-  // Main algorithm
-  for (int i=0; i<300; i++)
-  {
-    // Simulate Incompressible Schroedinger Flow
+  //tpsummary();
+
+  //print_psi<<<1,1>>>(); cudaDeviceSynchronize();  
+  //print_particles<<<1,1>>>(); cudaDeviceSynchronize();
+  
+}
+
+void jet_main(int i)
+{
     ISF_SchroedingerFlow();
     ISF_Normalize();
     ISF_PressureProject();
@@ -288,14 +292,4 @@ void jet_setup(int particleCount)
     ISF_VelocityOneForm(isf_cpu.hbar);
     Torus_StaggeredSharp();
     StaggeredAdvect();
-
-    //printf("Iteration %d done!\n", i);
-  }
-
-
-  tpsummary();
-
-  //print_psi<<<1,1>>>(); cudaDeviceSynchronize();  
-  //print_particles<<<1,1>>>(); cudaDeviceSynchronize();
-  
 }

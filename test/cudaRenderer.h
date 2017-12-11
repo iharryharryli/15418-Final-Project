@@ -58,6 +58,8 @@ public:
     //ISF relevant
     void ISF_render(int limit);
     int ISF_locate();
+    void ISF_Fast_Render();
+    void ISF_Slow_Render();
 
     void render();
 
