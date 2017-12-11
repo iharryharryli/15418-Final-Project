@@ -1041,7 +1041,7 @@ __global__ void ISF_render_kernel(int limit)
 {
   int ind = check_limit(limit);
   if(ind<0) return;
-	float avgCount = 1.0f;
+	float avgCount = 0.2f;
 	float r = 0.8f;
 
 
@@ -1050,9 +1050,7 @@ __global__ void ISF_render_kernel(int limit)
         [4 * (collector.output[ind].index)]);
 
 	int acc = collector.output[ind].value;
-	const int threshold = 5;
 
-  if(acc > threshold) acc = threshold;
 
 
 	float4 color = *imgPtr;

@@ -111,6 +111,7 @@ void isf_init(Torus* p, ISF* q)
   cudaMalloc(&(p -> fftbuf), sizeof(cuDoubleComplex) * (p -> plen));
   cufftPlan3d(&(p -> fftplan), 
       torus_cpu.resx, torus_cpu.resy, torus_cpu.resz, CUFFT_Z2Z);
+  cudaMalloc(&(p -> poissonbuf), sizeof(double) * (p -> plen));
 
 
   q -> hbar = 0.1;
@@ -246,6 +247,7 @@ void jet_setup(int particleCount)
   isf_init(&torus_cpu, &isf_cpu);
   para_init(&torus_cpu, &isf_cpu, &para_cpu, &nozzle_cpu);
 
+  Torus_BuildPoisson();
   ISF_BuildSchroedinger();
 
   // Jet-specific setup
@@ -269,7 +271,7 @@ void jet_setup(int particleCount)
   particle_birth(particleCount);
 
   // Main algorithm
-  for (int i=0; i<500; i++)
+  for (int i=0; i<300; i++)
   {
     // Simulate Incompressible Schroedinger Flow
     ISF_SchroedingerFlow();

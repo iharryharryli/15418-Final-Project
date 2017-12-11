@@ -87,7 +87,10 @@ void tpsummary()
     if(time_profile.count[i] == 0) continue;
     printf("Profile for %s\n",profileNames[i]);
     printf("Total Percentage %f\n", 100 * time_profile.total[i] / total);
-    printf("Avg Time %.10f\n\n", 
+    printf("Avg Time %.10f\n", 
         time_profile.total[i] / time_profile.count[i]);
+    printf("Total Time %.10f\n", time_profile.total[i]);
+    printf("Total Count %d\n", time_profile.count[i]);
+    printf("\n");
   }
 }

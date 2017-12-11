@@ -15,7 +15,7 @@ void jet_setup(int cnt);
 
 int main(int argc, char** argv)
 {
-	int imageWidth = 512;
+	int imageWidth = 1024;
 	int imageHeight = 512;
 	int particleCount = 50000;
 

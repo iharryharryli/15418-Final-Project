@@ -17,6 +17,9 @@ struct Torus
   double* div;
   cuDoubleComplex* fftbuf;
   cufftHandle fftplan;
+  
+  double* poissonbuf;
+  
 
 };
 
@@ -61,12 +64,6 @@ __global__ void Torus_Div ()
   int i,j,k;
   getCoords(normal_index, &i, &j, &k);
 
-  /*for(int i=0; i<torus.resx; i++)
-  {
-    for(int j=0; j<torus.resy; j++)
-    {
-      for(int k=0; k<torus.resz; k++)
-      {*/
         int ixm = (i - 1 + torus.resx) % torus.resx;
         int iym = (j - 1 + torus.resy) % torus.resy;
         int izm = (k - 1 + torus.resz) % torus.resz;
@@ -78,10 +75,6 @@ __global__ void Torus_Div ()
           (vy[normal_index] - vy[index3d(i,iym,k)])/dy2;
         torus.div[normal_index] +=
           (vz[normal_index] - vz[index3d(i,j,izm)])/dz2;
-
-      /*}
-    }
-  }*/
 
 }
 
@@ -124,6 +117,32 @@ __global__ void Torus_div2buf()
           torus.fftbuf[ind] = make_cuDoubleComplex(torus.div[ind],0.0);
 }
 
+__global__ void Torus_BuildPoisson_kernel()
+{
+  int ind = check_limit(torus.plen);  
+  if(ind<0)return;
+  int i,j,k;
+  getCoords(ind,&i,&j,&k);
+          double sx = sin(M_PI*i/torus.resx) / torus.dx;
+        double sy = sin(M_PI*j/torus.resy) / torus.dy;  
+        double sz = sin(M_PI*k/torus.resz) / torus.dz;
+        double denom = sx * sx + sy * sy + sz * sz;
+        double fac = 0.0;
+        if(ind > 0)
+        {
+          fac = -0.25 / denom;
+        }
+   torus.poissonbuf[ind] = fac;
+}
+
+void Torus_BuildPoisson()
+{
+  int nb = calc_numblock(torus_cpu.plen, THREADS_PER_BLOCK); 
+  Torus_BuildPoisson_kernel<<<nb, THREADS_PER_BLOCK>>>();
+  cudaDeviceSynchronize();
+}
+
+
 __global__ void PoissonSolve_main()
 {
   int ind = check_limit(torus.plen);
@@ -142,6 +161,13 @@ __global__ void PoissonSolve_main()
         mul_mycomplex(&torus.fftbuf[ind], fac);
           
         
+}
+
+__global__ void Fast_PoissonSolve_main()
+{
+  int ind = check_limit(torus.plen);
+  if(ind<0)return;
+  mul_mycomplex(&torus.fftbuf[ind], torus.poissonbuf[ind]);
 }
 
 //*********** not tested! ***********
@@ -246,7 +272,7 @@ void Torus_PoissonSolve()
   // Do work in the fourier space
 
   tpstart(1);
-  PoissonSolve_main<<<nb,THREADS_PER_BLOCK>>>();
+  Fast_PoissonSolve_main<<<nb,THREADS_PER_BLOCK>>>();
   cudaDeviceSynchronize();   
   tpend(1);
 
