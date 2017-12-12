@@ -1,6 +1,7 @@
 #include "ISF.cu"
 #include "particle.cu"
 #include "collect.cu"
+#include "cudaRenderer.h"
 
 struct nozzle_t
 {
@@ -208,11 +209,11 @@ void constrain_velocity(double t)
 
 
 __global__ void
-particle_birth_kernel()
+particle_birth_kernel(int from, int num)
 {
-	for(int i=0; i<particles.num_particles; i++)
+	for(int i=from; i<from+num; i++)
 	{
-		double rt = ((double)i) / particles.num_particles;
+		double rt = ((double)(i-from)) / num ;
 		rt *= 2 * M_PI;
 
 		particles.x[i] = nozzle.center[0];
@@ -221,20 +222,25 @@ particle_birth_kernel()
 	}
 }
 
-void particle_birth(int num)
+void particle_allocate(int num)
 {
-
-  particles_cpu.num_particles = num;
+  particles_cpu.num_particles = 0;
   cudaMalloc(&(particles_cpu.x), sizeof(double) * num);
   cudaMalloc(&(particles_cpu.y), sizeof(double) * num);
   cudaMalloc(&(particles_cpu.z), sizeof(double) * num);
   
   cudaMalloc(&(particles_cpu.pixel_index), sizeof(int) * num);
 
-  cudaMemcpyToSymbol(particles, &particles_cpu, sizeof(particles_t)); 
-  
-  particle_birth_kernel<<<1,1>>>();
+  cudaMemcpyToSymbol(particles, &particles_cpu, sizeof(particles_t));
+}
+
+void particle_birth(int num)
+{
+    particle_birth_kernel<<<1,1>>>(particles_cpu.num_particles, num);
   cudaDeviceSynchronize();
+  
+  particles_cpu.num_particles += num;
+  cudaMemcpyToSymbol(particles, &particles_cpu, sizeof(particles_t)); 
 }
 
 
@@ -267,7 +273,7 @@ void jet_setup(int particleCount)
   //cudaDeviceSynchronize(); 
 
   // generate particles
-  particle_birth(particleCount);
+  particle_allocate(particleCount);
 
   printf("Initialization Done! \n");
 
@@ -280,6 +286,12 @@ void jet_setup(int particleCount)
 
 void jet_main(int i)
 {
+    const int jet_period = 200;
+    const int rate = PARTICULE_NUM / jet_period;
+    if(i < jet_period)
+      particle_birth(rate);
+      
+
     ISF_SchroedingerFlow();
     ISF_Normalize();
     ISF_PressureProject();

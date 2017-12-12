@@ -17,6 +17,7 @@ struct particles_t
 __constant__ particles_t particles;
 particles_t particles_cpu;
 
+
 __device__ __inline__ void 
 StaggeredVelocity(double px, double py, double pz,
     double* ux, double* uy, double* uz)

@@ -22,6 +22,15 @@ void tpinit();
 
 int main(int argc, char** argv)
 {
+
+  if(argc < 2)
+  {
+    cout << "no argument!\n" << endl;
+    return 0;
+  }
+
+  int frame_gen_index = atoi(argv[1]);
+
 	int imageWidth = 1024;
 	int imageHeight = 512;
 	int particleCount = PARTICULE_NUM;
@@ -43,7 +52,7 @@ int main(int argc, char** argv)
 
   char filename_buf[100];
 
-  for(int i=0; i<500; i++)
+  for(int i=0; i<1000; i++)
   {
     jet_main(i);
 
@@ -51,10 +60,11 @@ int main(int argc, char** argv)
     renderer->clearImage();
     renderer->ISF_Fast_Render();
     tpend(18);
-    tpstart(19);
+    
+    if(i > frame_gen_index){
     sprintf(filename_buf,"frame/%d.ppm", i);
     writePPMImage(renderer->getImage(), filename_buf);
-    tpend(19);
+    }
 
     printf("iteration %d done. \n", i);
 

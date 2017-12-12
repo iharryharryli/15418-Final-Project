@@ -543,12 +543,14 @@ CudaRenderer::getImage() {
 	// need to copy contents of the rendered image from device memory
 	// before we expose the Image object to the caller
 
+  cudaDeviceSynchronize();
 	printf("Copying image data from device\n");
 
 	cudaMemcpy(image->data,
 				 cudaDeviceImageData,
 				 sizeof(float) * 4 * image->width * image->height,
 				 cudaMemcpyDeviceToHost);
+  cudaDeviceSynchronize(); 
 
 	return image;
 }
