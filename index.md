@@ -2,9 +2,9 @@
 by Yixiu Zhao (yixiuz) and Shangda Li (shangdal)
 
 ## Demo
-[Link Text](https://www.youtube.com/watch?v=gY28SRlS48I)
+[Here is the link to a video of our algorithm simulating and rendering Schrodinger’s Smoke with 5,000,000 particles in real-time at 48 FPS.](https://www.youtube.com/watch?v=gY28SRlS48I)
 
-Here is the link to a video of our algorithm simulating and rendering Schrodinger’s Smoke with 5,000,000 particles in real-time at 48 FPS.
+
 
 ## Summary
 We present our CUDA parallel implementation of a novel fluid simulation algorithm known as Incompressible Schrodinger Flow as well as a particle density map renderer that outputs high resolution images in real time.
@@ -43,42 +43,21 @@ In this section we look at the relationship between the total cost of ISF and pa
 After this optimization, we decide to move on to the rendering part. There are two reasons for not focusing on particle advection. Firstly, since the adjacent particles stored in memory is not necessarily adjacent in grid space, array access is inherently random, which makes it hard to do further non-trivial optimizations. Secondly, because of the same reason, rendering is really hard, and the naive implementation of the rendering algorithm takes significantly more time that the advection itself. We therefore move on to the rendering part.
 
 ### Part III. Rendering
+Since we are not familiar with the advanced techniques for rendering fluid or smoke, for this project we decide to keep things simple: we will render the image from the z axis, shading each pixel according to the number of particles whose projections are within that pixel. If we treat each particle as a transparent dot with alpha channel a and unit intensity, then if a pixel contains x particles, the final intensity of that pixel can be computed as:
+
+In the naive implementation, we simply run a parallel thread for each pixel in the image, then the thread loops over all particles and check if each particle’s projection is within that pixel. After getting the number of pixels, the thread shades that pixel accordingly. This is incredibly slow when the number of particles is large, so we designed another algorithm to keep track of the number of particles within each pixel. In our efficient algorithm, we instead have each particle check which pixel its projection is in when its position is updated each time. The pixels are presented as integer indices and this information is stored in an array. We then sort the array of particle indices according to pixel index with the parallel sort function provided by the Thrust library. After sorting the array, we have all the indices of the particles paired with the indices of pixels, and we basically implement a parallel collect algorithm to count the number of particles in each pixel. First we find the breakpoints in the array. Then we use Thrust::copy_if to only copy the cumulative particle count of the breakpoints into a new array. In the end we take the difference between the adjacent cumulative counts to get the count of particles within each pixel, paired with the index of that pixel. The complete algorithm is demonstrated in (Figure 6.).
+
+We run experiments with different amounts of particles and record the rendering time taken for both the naive and the efficient methods. The results are shown above in Figure 7 and Figure 8.  We can see that the efficient method, due to its parallel nature using scan, is significantly faster than the naive method. In fact, when simulating 5000 particles, the efficient method is 800 times faster than the efficient method, in terms of the rendering time per frame. Moreover, the efficient method scales well with increasing number of particles, as it fundamentally consists of three generically paralleled algorithms: sort, map and scan.
+
+This efficient rendering method is critical to the whole algorithm, because it enables real-time simulation and rendering at 48 FPS (frames per second) with 5,000,000 particles.
+
+## Summary
+Incompressible Schrodinger’s Flow is a novel algorithm that is elegant, efficient and realistic. In our CUDA implementation, we are able to achieve a 750x speedup over the original MATLAB implementation, both run on the GHC machines. We are unable to produce further speedup due to the fact that the algorithm is sequential in its framework, and that its arithmetic intensity is high. 
+
+We do however, make up for this fact by designing and implementing an efficient parallel renderer which can render 5 million particles at 48 frames a second. Since at very large particle counts, the dominant factor in time consumption is rendering, our efficient rendering algorithm is the deciding factor that makes real time rendering in practical applications possible.
 
 
 
 
 
 
-
-
-## Resources
-PAAC paper: https://arxiv.org/pdf/1705.04862.pdf
-
-Sourcecode: https://github.com/Alfredvc/paac
-
-We will be using the processors in XuLab@CMU: https://sites.google.com/view/xulab/home
-
-
-## Goals/Deliverables
-The most important metrics of evaluation are training per second (TPS), prediction per second (PPS) and the overall score during training. There are two main criteria that we want to evaluate. Firstly we want the network to perform faster with the current number of workers (measured in TPS and PPS). Secondly we want to use more workers at roughly the same TPS and PPS and see if it leads to faster convergence (measured in score), because the experiences are drawn from more randomly distributed sources.
-
-We hope to achieve at least a 1.5x speedup over the original paper in terms of training throughput, and we are happy with any improvement in terms of score vs. number of training data.
-
-## Platform
-We are using the python Tensorflow library for evaluation of deep neural networks within the algorithm, as it is the same platform used by the original paper.
-
-## Schedule
-Week 1: Read the paper and code from the original authors.
-
-Week 2: Try to get the original code running on our machines.
-
-Week 3: Try to get the original code running on our machines and do minor adjustments.
-
-Week 4: Try to improve the original code using methods using pipelining.
-
-Week 5: Try more optimization tricks if the methods don’t work. Start doing experiments.
-
-Week 6: Work on the final writeup.
-
-## References
-[1] Alfredo V. Clemente, Humberto N. Castejón, Arjun Chandra. “Efficient Parallel Methods for Deep Reinforcement Learning”. arXiv:1705.04862 [cs.LG] (2017).
