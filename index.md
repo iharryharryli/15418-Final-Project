@@ -2,7 +2,7 @@
 by Yixiu Zhao (yixiuz) and Shangda Li (shangdal)
 
 ## Demo
-https://www.youtube.com/watch?v=gY28SRlS48I
+[Link Text](https://www.youtube.com/watch?v=gY28SRlS48I)
 
 Here is the link to a video of our algorithm simulating and rendering Schrodinger’s Smoke with 5,000,000 particles in real-time at 48 FPS.
 
