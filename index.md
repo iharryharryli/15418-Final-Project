@@ -1,8 +1,10 @@
 # CUDA Implementation and Rendering of Schrodinger’s Smoke
 by Yixiu Zhao (yixiuz) and Shangda Li (shangdal)
 
-## Demo
-[Here is the link to a video of our algorithm simulating and rendering Schrodinger’s Smoke with 5,000,000 particles in real-time at 48 FPS.](https://www.youtube.com/watch?v=gY28SRlS48I)
+## Demo and Final Report
+[Link to a video of our algorithm simulating and rendering Schrodinger’s Smoke with 5,000,000 particles in real-time at 48 FPS.](https://www.youtube.com/watch?v=gY28SRlS48I)
+
+[Link to our Final Report](Final report.pdf) 
 
 
 
