@@ -1,6 +1,10 @@
 # CUDA Implementation and Rendering of Schrodinger’s Smoke
 by Yixiu Zhao (yixiuz) and Shangda Li (shangdal)
 
+## Demo
+https://www.youtube.com/watch?v=gY28SRlS48I
+Here is the linke to a video of our algorithm rendering Schrodinger’s Smoke with 5,000,000 particles in real-time at 48 FPS.
+
 ## Summary
 We present our CUDA parallel implementation of a novel fluid simulation algorithm known as Incompressible Schrodinger Flow as well as a particle density map renderer that outputs high resolution images in real time.
 
